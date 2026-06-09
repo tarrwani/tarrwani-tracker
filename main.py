@@ -1,28 +1,23 @@
-from db.queries import create_project, add_process, get_processes
-from core.tracker import Tracker
-import time
+import sys
+from PyQt6.QtWidgets import QApplication
+from ui.tray import TrayIcon
 
-# Создаём тестовый проект
-pid = create_project("Тест", "#4A90D9", afk_enabled=True)
-add_process(pid, "code.exe")
 
-project = {
-    "id": pid,
-    "name": "Тест",
-    "afk_enabled": True,
-    "processes": get_processes(pid)
-}
+def main():
+    app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)  # не закрываться когда окно закрыто
 
-print(f"Проект: {project}")
+    def on_open():
+        print("Открыть главное окно")  # потом заменим на реальное окно
 
-tracker = Tracker()
-tracker.start(project)
-print("Трекер запущен. Переключайся между окнами — смотри что происходит")
+    def on_quit():
+        app.quit()
 
-for i in range(15):
-    time.sleep(1)
-    status = "⏸ пауза" if tracker.is_paused else "▶ идёт"
-    print(f"{i+1}s | {status} | активный процесс отслеживается")
+    tray = TrayIcon(app, on_open=on_open, on_quit=on_quit)
+    tray.show()
 
-tracker.stop()
-print("Трекер остановлен")
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
