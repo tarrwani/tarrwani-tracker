@@ -1,8 +1,12 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+# Paths
+BASE_DIR = Path(__file__).resolve().parent
 
+# Database
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
     "port": os.getenv("DB_PORT", 54321),
@@ -11,6 +15,14 @@ DB_CONFIG = {
     "password": os.getenv("DB_PASSWORD", ""),
 }
 
+# Pomodoro
 POMODORO_WORK = 25 * 60
 POMODORO_BREAK = 5 * 60
+
+# AFK
 AFK_TIMEOUT = 3 * 60
+
+# App
+APP_NAME = "Tarrwani Tracker"
+APP_VERSION = "0.1.0"
+ICON_PATH = BASE_DIR / "assets" / "icon.png"
