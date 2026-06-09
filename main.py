@@ -1,14 +1,18 @@
 import sys
 from PyQt6.QtWidgets import QApplication
 from ui.tray import TrayIcon
+from ui.main_window import MainWindow
 
 
 def main():
     app = QApplication(sys.argv)
-    app.setQuitOnLastWindowClosed(False)  # не закрываться когда окно закрыто
+    app.setQuitOnLastWindowClosed(False)
+
+    window = MainWindow()
 
     def on_open():
-        print("Открыть главное окно")  # потом заменим на реальное окно
+        window.show()
+        window.activateWindow()
 
     def on_quit():
         app.quit()
