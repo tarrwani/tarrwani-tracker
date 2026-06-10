@@ -1,72 +1,55 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSpinBox, QPushButton, QLabel
-from PySide6.QtCore import Qt, QTimer
-from ui.widgets.circle_timer import CircleTimer
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QScrollArea, QPushButton
+from PySide6.QtCore import Qt
+from ui.widgets.timer_card import TimerCard
+from ui.widgets.timer_dialog import TimerDialog
 
 class TimerView(QWidget):
     def __init__(self):
         super().__init__()
 
-        self._value = 25 * 60
-        self._remaining = self._value
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(16, 16, 16, 16)
 
-        self._timer = QTimer()
-        self._timer.setInterval(1000)
-        self._timer.timeout.connect(self._tick)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("border: none;")
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        container = QWidget()
+        self.grid = QGridLayout(container)
+        self.grid.setSpacing(16)
 
-        # Круг
-        self.circle = CircleTimer()
-        self.circle.set_progress(self._remaining, self._value)
-        layout.addWidget(self.circle, alignment=Qt.AlignmentFlag.AlignCenter)
+        presets = [
+            ("1 минута", 60),
+            ("3 минуты", 180),
+            ("5 минут", 300),
+            ("10 минут", 600),
+        ]
 
-        # Поля ввода
-        time_layout = QHBoxLayout()
+        for i, (label, seconds) in enumerate(presets):
+            card = TimerCard(label, seconds)
+            self.grid.addWidget(card, i // 2, i % 2)
 
-        self.hours_input = QSpinBox()
-        self.hours_input.setRange(0, 23)
-        self.hours_input.valueChanged.connect(self._update_from_inputs)
+        self._card_count = len(presets)
 
-        self.minutes_input = QSpinBox()
-        self.minutes_input.setRange(0, 59)
-        self.minutes_input.setValue(25)
-        self.minutes_input.valueChanged.connect(self._update_from_inputs)
+        self.add_btn = QPushButton("+")
+        self.add_btn.setFixedSize(36, 36)
+        self.add_btn.clicked.connect(self._add_card)
+        self.add_btn.setStyleSheet("""
+            QPushButton { border-radius: 18px; background-color: #1D9E75; color: #ffffff; font-size: 20px; }
+            QPushButton:hover { background-color: #17835f; }
+        """)
 
-        self.seconds_input = QSpinBox()
-        self.seconds_input.setRange(0, 59)
-        self.seconds_input.valueChanged.connect(self._update_from_inputs)
+        scroll.setWidget(container)
+        main_layout.addWidget(scroll)
+        main_layout.addWidget(self.add_btn, alignment=Qt.AlignmentFlag.AlignRight)
 
-        time_layout.addWidget(self.hours_input)
-        time_layout.addWidget(QLabel(":"))
-        time_layout.addWidget(self.minutes_input)
-        time_layout.addWidget(QLabel(":"))
-        time_layout.addWidget(self.seconds_input)
-
-        # Кнопка
-        self.start_btn = QPushButton("Старт")
-        self.start_btn.clicked.connect(self._start)
-
-        layout.addLayout(time_layout)
-        layout.addWidget(self.start_btn, alignment=Qt.AlignmentFlag.AlignCenter)
-
-    def _update_from_inputs(self):
-        self._remaining = (self.hours_input.value() * 3600 +
-                           self.minutes_input.value() * 60 +
-                           self.seconds_input.value())
-        self._value = self._remaining
-        self.circle.set_progress(self._remaining, self._value)
-
-    def _tick(self):
-        self._remaining -= 1
-        if self._remaining <= 0:
-            self._remaining = 0
-            self._timer.stop()
-        self.circle.set_progress(self._remaining, self._value)
-
-    def _start(self):
-        self._value = (self.hours_input.value() * 3600 +
-                       self.minutes_input.value() * 60 +
-                       self.seconds_input.value())
-        self._remaining = self._value
-        self._timer.start()
+    def _add_card(self):
+        dialog = TimerDialog(self)
+        if dialog.exec():  # вернёт True если нажали "Добавить"
+            name, seconds = dialog.get_values()
+            card = TimerCard(name, seconds)
+            row = self._card_count // 2
+            col = self._card_count % 2
+            self.grid.addWidget(card, row, col)
+            self._card_count += 1
