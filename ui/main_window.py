@@ -8,6 +8,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Tarrwani Tracker")
         self.resize(700, 550)
+        self.setMinimumSize(220 + 96, 320 + 80)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -34,11 +35,10 @@ class MainWindow(QMainWindow):
 
         self.content.addWidget(self.timer_view) # 0
         self.content.addWidget(self.stat_view) # 1
-
+        self.sidebar = sidebar
         layout = QHBoxLayout()
         layout.addWidget(sidebar)
-        layout.addStretch()
-        layout.addWidget(self.content)
+        layout.addWidget(self.content, stretch=1)
         central_widget.setLayout(layout)
 
     def switch_view(self, index, active_btn):
@@ -46,3 +46,7 @@ class MainWindow(QMainWindow):
         self.stat_btn.setChecked(False)
         active_btn.setChecked(True)
         self.content.setCurrentIndex(index)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.sidebar.setVisible(self.width() >= 400)
