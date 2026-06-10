@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 # Paths
 BASE_DIR = Path(__file__).resolve().parent
+INTERFACE_DIR = BASE_DIR / "ui"
 
 # Database
 DB_CONFIG = {
@@ -24,5 +25,5 @@ AFK_TIMEOUT = 3 * 60
 
 # App
 APP_NAME = "Tarrwani Tracker"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.1.1"
 ICON_PATH = BASE_DIR / "assets" / "icon.png"
