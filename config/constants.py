@@ -11,7 +11,7 @@ ASSETS_DIR    = BASE_DIR / "assets"
 
 # ── App ───────────────────────────────────────────────────────
 APP_NAME    = "Tarrwani Tracker"
-APP_VERSION = "0.1.1"
+APP_VERSION = "0.1.2"
 ICON_PATH   = ASSETS_DIR / "icon.png"
 
 # ── Database ──────────────────────────────────────────────────

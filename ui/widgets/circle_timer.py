@@ -53,7 +53,7 @@ class CircleTimer(QWidget):
         painter.setFont(QFont(CIRCLE_FONT_FAMILY, CIRCLE_TIMER_FONT_SIZE, QFont.Weight.Bold))
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, f"{h:02d}:{m:02d}:{s:02d}")
 
-    # ── Animated property ─────────────────────────────────────
+    # Animated property
 
     def _get_progress(self) -> float:
         return self._progress

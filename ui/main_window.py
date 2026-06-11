@@ -24,7 +24,7 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # ── Sidebar ───────────────────────────────────────────
+        # Sidebar 
         self.sidebar = QWidget()
         self.sidebar.setFixedWidth(SIDEBAR_EXPANDED)
         self.sidebar.setStyleSheet(f"background-color: {COLOR_BG_PRIMARY};")
@@ -87,7 +87,7 @@ class MainWindow(QMainWindow):
         sidebar_layout.addStretch()
         self.sidebar.setLayout(sidebar_layout)
 
-        # ── Content ───────────────────────────────────────────
+        # Content
         self.content = QStackedWidget()
         self.timer_view = TimerView()
         self.stat_view  = StatView()
@@ -100,7 +100,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.sidebar)
         layout.addWidget(self.content)
 
-        # ── Animation ─────────────────────────────────────────
+        # Animation
         self._anim = QVariantAnimation()
         self._anim.setDuration(SIDEBAR_ANIM_MS)
         self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)

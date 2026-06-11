@@ -44,7 +44,7 @@ class TimeInput(QWidget):
 
         self._apply_styles()
 
-    # ── Theming ───────────────────────────────────────────────
+    # Theme
 
     def _apply_styles(self) -> None:
         t = settings_manager.theme
@@ -77,7 +77,7 @@ class TimeInput(QWidget):
     def refresh_theme(self) -> None:
         self._apply_styles()
 
-    # ── Value control ─────────────────────────────────────────
+    # Value control
 
     def _increment(self) -> None:
         if self._value < self._max:
