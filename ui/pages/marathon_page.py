@@ -479,8 +479,11 @@ class _ProcessTagInputInline(QWidget):
         self._input.setCompleter(completer)
 
     def _on_completer_activated(self, text: str):
-        self._input.setText(text)
-        self._add_current()
+        name = text.strip()
+        if name and name.lower() not in {n.lower() for n in self._selected}:
+            self._selected.append(name)
+            self._rebuild_tags()
+        self._input.clear()
 
     def _add_current(self):
         name = self._input.text().strip()

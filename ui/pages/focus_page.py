@@ -34,14 +34,14 @@ class FocusPage(QWidget):
         self._engine.sig_tick.connect(self._on_engine_tick)
         self._engine.sig_finished.connect(self._on_engine_finished)
 
-    @property
-    def projects(self) -> list[dict]:
-        return self._projects
-
         self._proc_tracker: ProcessTracker | None = None
         self._session_accumulator: dict[str, int] = {}
 
         self._setup_ui()
+
+    @property
+    def projects(self) -> list[dict]:
+        return self._projects
 
     # ── Build ──────────────────────────────────────────────────
     def _setup_ui(self) -> None:
