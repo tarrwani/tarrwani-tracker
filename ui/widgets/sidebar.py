@@ -6,11 +6,8 @@ from config import (
     COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY,
     SIDEBAR_EXPANDED, SIDEBAR_COLLAPSED,
     SIDEBAR_ANIM_MS, SIDEBAR_TEXT_THRESHOLD, ASSETS_DIR,
-    APP_BORDER_RADIUS,
+    APP_BORDER_RADIUS
 )
-
-_MENU_BTN_H = 48
-
 
 class SidebarWidget(QWidget):
     view_changed = Signal(int)
@@ -19,12 +16,11 @@ class SidebarWidget(QWidget):
         (1, "statistics", "Статистика"),
         (2, "hourglass", "Марафон"),
     ]
-
     def __init__(self):
         super().__init__()
 
         self.setFixedWidth(SIDEBAR_COLLAPSED)
-
+        
         self.setStyleSheet(f"""
             background-color: {COLOR_SIDEBAR};
             border-top-left-radius: {APP_BORDER_RADIUS}px;
@@ -32,9 +28,9 @@ class SidebarWidget(QWidget):
         """)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
-        self._expanded = False
-        self._animating = False
-        self._current_idx = 0
+        self._expanded      = False
+        self._animating     = False
+        self._current_idx   = 0
 
         self._buttons: list[QPushButton] = []
         self._setup_ui()
@@ -42,29 +38,10 @@ class SidebarWidget(QWidget):
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 0, 10, 10)
-        layout.setSpacing(0)
+        layout.setContentsMargins(10, 42, 10, 10)
+        layout.setSpacing(4)
 
-        # Fixed hamburger button — always visible, never expands
-        self._menu_btn = QPushButton()
-        self._menu_btn.setIcon(QIcon(str(ASSETS_DIR / "menu.svg")))
-        self._menu_btn.setIconSize(QSize(20, 20))
-        self._menu_btn.setFixedSize(SIDEBAR_COLLAPSED - 20, _MENU_BTN_H)
-        self._menu_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._menu_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent;
-                border: none;
-                border-radius: 8px;
-                color: {COLOR_TEXT_SECONDARY};
-            }}
-            QPushButton:hover {{ background: {COLOR_BG_NAV}; color: {COLOR_TEXT_PRIMARY}; }}
-        """)
-        self._menu_btn.clicked.connect(self.toggle)
-        layout.addWidget(self._menu_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        # Nav buttons (expand/contract with animation)
-        nav_style = self._btn_style()
+        style = self._btn_style()
         for idx, icon, label in self._NAV_ITEMS:
             btn = QPushButton()
             btn.setIcon(QIcon(str(ASSETS_DIR / f"{icon}.svg")))
@@ -72,11 +49,11 @@ class SidebarWidget(QWidget):
             btn.setCheckable(True)
             btn.setChecked(idx == self._current_idx)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(nav_style)
+            btn.setStyleSheet(style)
             btn.clicked.connect(lambda _checked, i=idx: self._on_btn_clicked(i))
             layout.addWidget(btn)
             self._buttons.append(btn)
-
+        
         layout.addStretch()
 
     def _btn_style(self) -> str:
@@ -93,7 +70,7 @@ class SidebarWidget(QWidget):
             QPushButton:hover   {{ background: {COLOR_BG_NAV};        color: {COLOR_TEXT_PRIMARY}; }}
             QPushButton:checked {{ background: {COLOR_BG_NAV_ACTIVE}; color: {COLOR_TEXT_PRIMARY}; }}
         """
-
+    
     def _on_btn_clicked(self, index: int):
         self.set_active(index)
         self.view_changed.emit(index)
@@ -117,11 +94,9 @@ class SidebarWidget(QWidget):
         if self._animating:
             return
         self._animating = True
-        self._expanded = not self._expanded
+        self._expanded  = not self._expanded
         self._anim.setStartValue(float(self.width()))
-        self._anim.setEndValue(
-            float(SIDEBAR_EXPANDED if self._expanded else SIDEBAR_COLLAPSED)
-        )
+        self._anim.setEndValue(float(SIDEBAR_EXPANDED if self._expanded else SIDEBAR_COLLAPSED))
         self._anim.start()
 
     def set_active(self, index: int):

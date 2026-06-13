@@ -23,32 +23,12 @@ class TopBar(QWidget):
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        
-        layout.setContentsMargins(10, 5, 12, 5) 
+        layout.setContentsMargins(0, 5, 12, 5)
         layout.setSpacing(0)
-
-        self._menu_icon = QIcon(str(ASSETS_DIR / "menu.svg"))
-
-        self.menu_btn = QPushButton()
-        self.menu_btn.setIcon(self._menu_icon)
-        self.menu_btn.setFixedSize(48, 32)
-        self.menu_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.menu_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent;
-                border: none;
-                color: {COLOR_TEXT_PRIMARY};
-                font-size: 16px;
-                border-radius: 6px;
-            }}
-            QPushButton:hover {{ background: {COLOR_BG_NAV}; }}
-        """)
-
-        self.menu_btn.clicked.connect(self.sig_menu_clicked.emit)
 
         self._icon_lbl = QLabel()
         self._icon_lbl.setStyleSheet("background: transparent;")
-        
+
         pixmap = QPixmap(str(ICON_PATH))
         if not pixmap.isNull():
             self._icon_lbl.setFixedSize(24, 24)
@@ -59,7 +39,7 @@ class TopBar(QWidget):
             )
         else:
             self._icon_lbl.setFixedSize(0, 0)
-            
+
         self._icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self._title_lbl = QLabel(APP_NAME)
@@ -90,8 +70,7 @@ class TopBar(QWidget):
         self._fullscreen_btn = self._make_icon_btn("fullscreen.svg", btn_style,   self._on_fullscreen)
         self._close_btn      = self._make_icon_btn("close.svg", close_style, self.sig_close)
 
-        layout.addWidget(self.menu_btn) 
-        layout.addSpacing(23)
+        layout.addSpacing(70)
         layout.addWidget(self._icon_lbl)
         layout.addSpacing(10)
         layout.addWidget(self._title_lbl)
@@ -123,10 +102,8 @@ class TopBar(QWidget):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            # ИЗМЕНЕНИЕ: Обновили координату начала зоны перетаскивания под новый margin (14 отступ + 36 кнопка + 25 спейсинг = 75)
-            if event.position().x() > 75:
-                self._drag_pos = event.globalPosition().toPoint() - self.window().frameGeometry().topLeft()
-                event.accept()
+            self._drag_pos = event.globalPosition().toPoint() - self.window().frameGeometry().topLeft()
+            event.accept()
 
     def mouseMoveEvent(self, event):
         if event.buttons() == Qt.MouseButton.LeftButton and hasattr(self, '_drag_pos'):

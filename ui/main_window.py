@@ -1,6 +1,6 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget
-from PySide6.QtGui import QPainter, QColor, QBrush, QPen
-from PySide6.QtCore import Qt, QPoint, QEvent, Signal
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QPushButton
+from PySide6.QtGui import QPainter, QColor, QBrush, QPen, QIcon
+from PySide6.QtCore import Qt, QPoint, QSize, QEvent, Signal
 
 from ui.widgets.sidebar import SidebarWidget
 from ui.widgets.topbar import TopBar
@@ -8,7 +8,7 @@ from ui.pages.focus_page import FocusPage
 from ui.pages.stats_page import StatsPage
 from ui.pages.marathon_page import MarathonPage
 from ui.widgets.sidegrip import SideGrip
-from config import APP_BORDER_RADIUS, COLOR_BG_PRIMARY, SIDEBAR_COLLAPSED
+from config import APP_BORDER_RADIUS, COLOR_BG_PRIMARY, COLOR_BG_NAV, ASSETS_DIR
 
 
 class MainWindow(QWidget):
@@ -56,7 +56,25 @@ class MainWindow(QWidget):
         self.topbar.sig_close.connect(self.close)
         self.topbar.sig_minimize.connect(self.showMinimized)
         self.topbar.sig_fullscreen.connect(self._toggle_fullscreen)
-        self.topbar.sig_menu_clicked.connect(self.sidebar.toggle)
+
+        # Hamburger menu — дочерний элемент MainWindow, позиция (10, 5)
+        self._menu_btn = QPushButton(self)
+        self._menu_btn.setIcon(QIcon(str(ASSETS_DIR / "menu.svg")))
+        self._menu_btn.setIconSize(QSize(20, 20))
+        self._menu_btn.setFixedSize(48, 32)
+        self._menu_btn.move(10, 5)
+        self._menu_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._menu_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+                border-radius: 6px;
+                color: #aaaaaa;
+            }}
+            QPushButton:hover {{ background: {COLOR_BG_NAV}; color: #ffffff; }}
+        """)
+        self._menu_btn.clicked.connect(self.sidebar.toggle)
+        self._menu_btn.raise_()
 
         # Грипы ресайза
         self._setup_resizers()
