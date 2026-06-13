@@ -2,98 +2,104 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel
 from PySide6.QtCore import Qt, Signal
 
 from config import (
-    COLOR_TEXT_PRIMARY, COLOR_TEXT_MUTED,
+    COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY, COLOR_TEXT_MUTED,
+    COLOR_BG_SURFACE, COLOR_BG_SURFACE_HOVER, COLOR_ACCENT,
+    COLOR_BG_OVERLAY_HOVER,
     TIME_INPUT_BTN_W, TIME_INPUT_BTN_H,
     TIME_INPUT_FONT, TIME_INPUT_LABEL_FONT, TIME_INPUT_ARROW_FONT,
-    settings_manager,
 )
 
 
-class TimeInput(QWidget):
-    valueChanged = Signal()
+class TimeInputWidget(QWidget):
+    """Vertical spinbox for entering a minute value (1–999)."""
 
-    def __init__(self, label: str, min_val: int, max_val: int,
-                 default: int = 0, parent=None) -> None:
+    value_changed = Signal(int)
+
+    def __init__(
+        self,
+        label: str = "",
+        min_val: int = 1,
+        max_val: int = 999,
+        value: int = 25,
+        parent=None,
+    ):
         super().__init__(parent)
-        self._value = default
         self._min   = min_val
         self._max   = max_val
+        self._value = max(min_val, min(max_val, value))
+        self._label = label
+        self._setup_ui()
 
+    # ── Build ──────────────────────────────────────────────────
+    def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(4)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+        layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        self.title = QLabel(label)
-        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        if self._label:
+            lbl = QLabel(self._label)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl.setStyleSheet(
+                f"color: {COLOR_TEXT_MUTED}; font-size: {TIME_INPUT_LABEL_FONT}px;"
+                " background: transparent;"
+            )
+            layout.addWidget(lbl)
 
-        self.up_btn = QPushButton("▲")
-        self.up_btn.setFixedSize(TIME_INPUT_BTN_W, TIME_INPUT_BTN_H)
-        self.up_btn.clicked.connect(self._increment)
+        self._up_btn = self._arrow_btn("▲")
+        self._up_btn.clicked.connect(self._increment)
+        layout.addWidget(self._up_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        self.value_label = QLabel(f"{default:02d}")
-        self.value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.down_btn = QPushButton("▼")
-        self.down_btn.setFixedSize(TIME_INPUT_BTN_W, TIME_INPUT_BTN_H)
-        self.down_btn.clicked.connect(self._decrement)
-
-        layout.addWidget(self.title)
-        layout.addWidget(self.up_btn,    alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.value_label)
-        layout.addWidget(self.down_btn,  alignment=Qt.AlignmentFlag.AlignCenter)
-
-        self._apply_styles()
-
-    # Theme
-
-    def _apply_styles(self) -> None:
-        t = settings_manager.theme
-
-        self.title.setStyleSheet(
-            f"color: {t.text_muted}; font-size: {TIME_INPUT_LABEL_FONT}px;"
+        self._val_lbl = QLabel(str(self._value))
+        self._val_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._val_lbl.setStyleSheet(
+            f"color: {COLOR_TEXT_PRIMARY}; font-size: {TIME_INPUT_FONT}px;"
+            f" font-weight: bold; background: transparent; min-width: 72px;"
         )
+        layout.addWidget(self._val_lbl)
 
-        self.value_label.setStyleSheet(
-            f"color: {t.text_primary};"
-            f"font-size: {TIME_INPUT_FONT}px;"
-            f"font-weight: bold;"
-        )
+        self._down_btn = self._arrow_btn("▼")
+        self._down_btn.clicked.connect(self._decrement)
+        layout.addWidget(self._down_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        arrow_style = f"""
+    def _arrow_btn(self, text: str) -> QPushButton:
+        btn = QPushButton(text)
+        btn.setFixedSize(TIME_INPUT_BTN_W, TIME_INPUT_BTN_H)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setStyleSheet(f"""
             QPushButton {{
+                background: {COLOR_BG_OVERLAY_HOVER};
                 border: none;
-                color: {t.text_muted};
+                border-radius: 6px;
+                color: {COLOR_TEXT_SECONDARY};
                 font-size: {TIME_INPUT_ARROW_FONT}px;
-                border-radius: 4px;
             }}
             QPushButton:hover {{
-                background-color: {t.bg_overlay_hover};
-                color: {t.text_primary};
+                background: {COLOR_BG_SURFACE_HOVER};
+                color: {COLOR_TEXT_PRIMARY};
             }}
-        """
-        self.up_btn.setStyleSheet(arrow_style)
-        self.down_btn.setStyleSheet(arrow_style)
+            QPushButton:pressed {{
+                background: {COLOR_ACCENT};
+                color: #ffffff;
+            }}
+        """)
+        return btn
 
-    def refresh_theme(self) -> None:
-        self._apply_styles()
-
-    # Value control
-
+    # ── Logic ──────────────────────────────────────────────────
     def _increment(self) -> None:
-        if self._value < self._max:
-            self._value += 1
-            self.value_label.setText(f"{self._value:02d}")
-            self.valueChanged.emit()
+        self.set_value(self._value + 1)
 
     def _decrement(self) -> None:
-        if self._value > self._min:
-            self._value -= 1
-            self.value_label.setText(f"{self._value:02d}")
-            self.valueChanged.emit()
+        self.set_value(self._value - 1)
+
+    def set_value(self, v: int) -> None:
+        self._value = max(self._min, min(self._max, v))
+        self._val_lbl.setText(str(self._value))
+        self.value_changed.emit(self._value)
 
     def value(self) -> int:
         return self._value
-
+    
     def wheelEvent(self, event) -> None:
         if event.angleDelta().y() > 0:
             self._increment()

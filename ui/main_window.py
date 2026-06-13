@@ -1,144 +1,207 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QStackedWidget
-from PySide6.QtCore import Qt, QVariantAnimation, QEasingCurve
-from ui.views.timer_view import TimerView
-from ui.views.stat_view  import StatView
-from config import (
-    COLOR_BG_PRIMARY, COLOR_BG_NAV, COLOR_BG_NAV_HOVER,
-    COLOR_BG_NAV_ACTIVE, COLOR_BG_NAV_PRESSED,
-    COLOR_TEXT_SECONDARY, COLOR_TEXT_PRIMARY,
-    SIDEBAR_EXPANDED, SIDEBAR_COLLAPSED,
-    SIDEBAR_ANIM_MS, SIDEBAR_TEXT_THRESHOLD,
-    CARD_MIN_WIDTH,
-)
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget
+from PySide6.QtGui import QPainter, QColor, QBrush, QPen
+from PySide6.QtCore import Qt, QPoint, QEvent, Signal
+
+from ui.widgets.sidebar import SidebarWidget
+from ui.widgets.topbar import TopBar
+from ui.pages.focus_page import FocusPage
+from ui.pages.stats_page import StatsPage
+from ui.pages.marathon_page import MarathonPage
+from ui.widgets.sidegrip import SideGrip
+from config import APP_BORDER_RADIUS, COLOR_BG_PRIMARY, SIDEBAR_COLLAPSED
 
 
-class MainWindow(QMainWindow):
+class MainWindow(QWidget):
+    sig_window_minimized = Signal(bool)
+
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Tarrwani Tracker")
-        self.resize(700, 550)
-        self.setMinimumSize(CARD_MIN_WIDTH + 96, 320 + 80)
-        self._sidebar_expanded = True
-        self._animating = False
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setMinimumSize(600, 400)
+        self.resize(800, 600)
+        self._setup_ui()
 
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+    def _setup_ui(self):
+        # root = QHBoxLayout(self)
+        # root.setContentsMargins(0, 0, 0, 0)
+        # root.setSpacing(0)
 
-        # Sidebar 
-        self.sidebar = QWidget()
-        self.sidebar.setFixedWidth(SIDEBAR_EXPANDED)
-        self.sidebar.setStyleSheet(f"background-color: {COLOR_BG_PRIMARY};")
+        # self.sidebar = SidebarWidget()
+        # self.sidebar.view_changed.connect(self._on_view_changed)
+        # root.addWidget(self.sidebar)
 
-        self.toggle_btn = QPushButton("◀")
-        self.toggle_btn.setFixedSize(44, 44)
-        self.toggle_btn.setMinimumWidth(44)
-        self.toggle_btn.setMaximumWidth(160)
-        self.toggle_btn.setToolTip("Свернуть/развернуть панель")
-        self.toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.toggle_btn.clicked.connect(self._toggle_sidebar)
-        self.toggle_btn.setStyleSheet(f"""
-            QPushButton {{
-                padding: 0 12px;
-                background: {COLOR_BG_NAV};
-                color: {COLOR_TEXT_SECONDARY};
-                border: none;
-                border-radius: 10px;
-                text-align: left;
-                font-size: 16px;
-            }}
-            QPushButton:hover   {{ background: {COLOR_BG_NAV_HOVER};    color: {COLOR_TEXT_PRIMARY}; }}
-            QPushButton:pressed {{ background: {COLOR_BG_NAV_PRESSED};  }}
-        """)
+        # self.content = QWidget()
+        # self.content.setContentsMargins(0, 36, 0, 0)
 
-        nav_btn_style = f"""
-            QPushButton {{
-                text-align: left;
-                padding: 8px 10px;
-                background: transparent;
-                color: {COLOR_TEXT_SECONDARY};
-                border: none;
-                border-radius: 8px;
-                font-size: 14px;
-            }}
-            QPushButton:hover   {{ background: {COLOR_BG_NAV};        color: {COLOR_TEXT_PRIMARY}; }}
-            QPushButton:checked {{ background: {COLOR_BG_NAV_ACTIVE}; color: {COLOR_TEXT_PRIMARY}; }}
-        """
+        # content_layout = QVBoxLayout(self.content)
+        # content_layout.setContentsMargins(0, 0, 0, 0)
+        # content_layout.setSpacing(0)
 
-        self.timer_btn = QPushButton("🕒  Таймер")
-        self.timer_btn.setCheckable(True)
-        self.timer_btn.setChecked(True)
-        self.timer_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.timer_btn.setStyleSheet(nav_btn_style)
-        self.timer_btn.clicked.connect(lambda: self.switch_view(0, self.timer_btn))
+        # self.pages = QStackedWidget()
+        # content_layout.addWidget(self.pages)
 
-        self.stat_btn = QPushButton("📊  Статистика")
-        self.stat_btn.setCheckable(True)
-        self.stat_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.stat_btn.setStyleSheet(nav_btn_style)
-        self.stat_btn.clicked.connect(lambda: self.switch_view(1, self.stat_btn))
+        # self.focus_page = FocusPage()   # 0
+        # self.stats_page = StatsPage()   # 1
 
-        sidebar_layout = QVBoxLayout()
-        sidebar_layout.setContentsMargins(10, 10, 10, 10)
-        sidebar_layout.setSpacing(4)
-        sidebar_layout.addWidget(self.toggle_btn, alignment=Qt.AlignmentFlag.AlignLeft)
-        sidebar_layout.addSpacing(8)
-        sidebar_layout.addWidget(self.timer_btn)
-        sidebar_layout.addWidget(self.stat_btn)
-        sidebar_layout.addStretch()
-        self.sidebar.setLayout(sidebar_layout)
+        # self.pages.addWidget(self.focus_page)
+        # self.pages.addWidget(self.stats_page)
 
-        # Content
-        self.content = QStackedWidget()
-        self.timer_view = TimerView()
-        self.stat_view  = StatView()
-        self.content.addWidget(self.timer_view)
-        self.content.addWidget(self.stat_view)
+        # root.addWidget(self.content, stretch=1)
 
-        layout = QHBoxLayout(central_widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.addWidget(self.sidebar)
-        layout.addWidget(self.content)
+        # self.topbar = TopBar(self)
+        # self.topbar.sig_close.connect(self.close)
+        # self.topbar.sig_minimize.connect(self.showMinimized)
+        # self.topbar.sig_fullscreen.connect(self._toggle_fullscreen)
+        # self.topbar.sig_menu_clicked.connect(self.sidebar.toggle)
 
-        # Animation
-        self._anim = QVariantAnimation()
-        self._anim.setDuration(SIDEBAR_ANIM_MS)
-        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self._anim.valueChanged.connect(self._on_anim_value)
-        self._anim.finished.connect(self._on_anim_finished)
+        # self.sidebar.raise_()
+        # self.topbar.raise_()
 
-    def _on_anim_value(self, value):
-        w = int(value)
-        self.sidebar.setFixedWidth(w)
-        if w >= SIDEBAR_TEXT_THRESHOLD:
-            self.timer_btn.setText("🕒  Таймер")
-            self.stat_btn.setText("📊  Статистика")
-            self.toggle_btn.setText("◀  Свернуть")
-        else:
-            self.timer_btn.setText("🕒")
-            self.stat_btn.setText("📊")
-            self.toggle_btn.setText("▶")
+        # self._setup_resizers()
 
-    def _toggle_sidebar(self):
-        if self._animating:
-            return
-        self._animating = True
-        self._sidebar_expanded = not self._sidebar_expanded
-        start = self.sidebar.width()
-        end   = SIDEBAR_EXPANDED if self._sidebar_expanded else SIDEBAR_COLLAPSED
-        self._anim.setStartValue(float(start))
-        self._anim.setEndValue(float(end))
-        self._anim.start()
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-    def _on_anim_finished(self):
-        self._animating = False
+        # 2. Добавляем ТОПБАР на самый верх. Он займет ровно столько, 
+        # сколько ему нужно по высоте (например, 42px)
+        self.topbar = TopBar(self)
+        main_layout.addWidget(self.topbar)
 
-    def switch_view(self, index: int, active_btn: QPushButton):
-        self.timer_btn.setChecked(False)
-        self.stat_btn.setChecked(False)
-        active_btn.setChecked(True)
-        self.content.setCurrentIndex(index)
+        # 3. Создаем ГОРИЗОНТАЛЬНЫЙ контейнер для нижней части (Сайдбар + Контент)
+        workspace_layout = QHBoxLayout()
+        workspace_layout.setContentsMargins(0, 0, 0, 0)
+        workspace_layout.setSpacing(0)
+        main_layout.addLayout(workspace_layout)
+
+        # 4. Добавляем Сайдбар в рабочий контейнер
+        self.sidebar = SidebarWidget()
+        self.sidebar.view_changed.connect(self._on_view_changed)
+        workspace_layout.addWidget(self.sidebar)
+
+        # 5. Создаем Контентную зону (Центральная часть)
+        self.pages = QStackedWidget()
+        self.focus_page = FocusPage()
+        self.stats_page = StatsPage()
+        self.marathon_page = MarathonPage()
+        self.pages.addWidget(self.focus_page)
+        self.pages.addWidget(self.stats_page)
+        self.pages.addWidget(self.marathon_page)
+        
+        # Добавляем страницы в рабочую область и заставляем их растягиваться (stretch=1)
+        workspace_layout.addWidget(self.pages, stretch=1)
+
+        # Связываем сигналы топбара
+        self.topbar.sig_close.connect(self.close)
+        self.topbar.sig_minimize.connect(self.showMinimized)
+        self.topbar.sig_fullscreen.connect(self._toggle_fullscreen)
+        self.topbar.sig_menu_clicked.connect(self.sidebar.toggle)
+
+        # Инициализируем грипы ресайза
+        self._setup_resizers()
+
+        self.sig_window_minimized.connect(self.focus_page._on_window_minimized)
+        self.sig_window_minimized.connect(self.marathon_page._on_window_minimized)
+
+    def _setup_resizers(self):
+        self._grips = {}
+        grip_configs = [
+            ('T',  Qt.CursorShape.SizeVerCursor),
+            ('B',  Qt.CursorShape.SizeVerCursor),
+            ('L',  Qt.CursorShape.SizeHorCursor),
+            ('R',  Qt.CursorShape.SizeHorCursor),
+            ('TL', Qt.CursorShape.SizeFDiagCursor),
+            ('TR', Qt.CursorShape.SizeBDiagCursor),
+            ('BL', Qt.CursorShape.SizeBDiagCursor),
+            ('BR', Qt.CursorShape.SizeFDiagCursor),
+        ]
+        for pos, cursor in grip_configs:
+            grip = SideGrip(self, pos, cursor)
+            self._grips[pos] = grip
+            grip.raise_()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.sidebar.setVisible(self.width() >= 400)
+        #if hasattr(self, 'topbar'):
+            #self.topbar.setGeometry(0, 0, self.width(), 42)
+        #if hasattr(self, 'sidebar'):
+            #self.sidebar.setGeometry(0, 0, self.sidebar.width(), self.height())
+        if hasattr(self, '_grips'):
+            is_fs = self.isFullScreen()
+            t = 6
+            w, h = self.width(), self.height()
+
+            for grip in self._grips.values():
+                grip.setVisible(not is_fs)
+
+            if not is_fs:
+                self._grips['T'].setGeometry(t, 0, w - 2*t, t)
+                self._grips['B'].setGeometry(t, h - t, w - 2*t, t)
+                self._grips['L'].setGeometry(0, t, t, h - 2*t)
+                self._grips['R'].setGeometry(w - t, t, t, h - 2*t)
+                self._grips['TL'].setGeometry(0, 0, t, t)
+                self._grips['TR'].setGeometry(w - t, 0, t, t)
+                self._grips['BL'].setGeometry(0, h - t, t, t)
+                self._grips['BR'].setGeometry(w - t, h - t, t, t)
+
+    def _start_resize(self, position: str, global_press_pos: QPoint):
+        self._resize_pos = position
+        self._resize_start_geom = self.geometry()
+        self._resize_start_global = global_press_pos
+
+    def _drag_resize(self, global_current_pos: QPoint):
+        if self.isFullScreen() or not hasattr(self, '_resize_pos'):
+            return
+
+        geom = self._resize_start_geom
+        x, y, w, h = geom.x(), geom.y(), geom.width(), geom.height()
+        min_w, min_h = self.minimumSize().width(), self.minimumSize().height()
+
+        delta = global_current_pos - self._resize_start_global
+        dx, dy = delta.x(), delta.y()
+
+        position = self._resize_pos
+
+        if 'L' in position:
+            max_dx = w - min_w
+            actual_dx = min(dx, max_dx)
+            x += actual_dx
+            w -= actual_dx
+        elif 'R' in position:
+            w = max(min_w, w + dx)
+
+        if 'T' in position:
+            max_dy = h - min_h
+            actual_dy = min(dy, max_dy)
+            y += actual_dy
+            h -= actual_dy
+        elif 'B' in position:
+            h = max(min_h, h + dy)
+
+        self.setGeometry(x, y, w, h)
+
+    def _on_view_changed(self, index: int):
+        self.pages.setCurrentIndex(index)
+
+    def _toggle_fullscreen(self):
+        if self.isFullScreen():
+            self.showNormal()
+        else:
+            self.showFullScreen()
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.WindowStateChange:
+            minimized = self.windowState() & Qt.WindowState.WindowMinimized
+            self.sig_window_minimized.emit(bool(minimized))
+        super().changeEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QBrush(QColor(COLOR_BG_PRIMARY)))
+        painter.setPen(QPen(Qt.PenStyle.NoPen))
+        painter.drawRoundedRect(
+            self.rect().adjusted(0, 0, -1, -1),
+            APP_BORDER_RADIUS, APP_BORDER_RADIUS
+        )

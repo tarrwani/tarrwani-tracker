@@ -13,6 +13,7 @@ ASSETS_DIR    = BASE_DIR / "assets"
 APP_NAME    = "Tarrwani Tracker"
 APP_VERSION = "0.1.2"
 ICON_PATH   = ASSETS_DIR / "icon.png"
+APP_BORDER_RADIUS = 12
 
 # ── Database ──────────────────────────────────────────────────
 DB_CONFIG = {
@@ -33,7 +34,7 @@ SHADOW_ALPHA_HOVER   = 140
 
 # ── Card ──────────────────────────────────────────────────────
 CARD_HEIGHT    = 320
-CARD_MIN_WIDTH = 220
+CARD_MIN_WIDTH = 270
 CARD_BORDER_R  = 12
 
 # ── Buttons ───────────────────────────────────────────────────
@@ -41,9 +42,13 @@ BTN_ICON_SIZE    = 20
 BTN_ROUND_SIZE   = 40
 BTN_ROUND_RADIUS = 20
 
+BTN_REMOVE_SIZE       = 15
+BTN_REMOVE_ROUND_SIZE = 30
+BTN_REMOVE_RADIUS     = 30
+
 # ── Sidebar ───────────────────────────────────────────────────
-SIDEBAR_EXPANDED       = 200
-SIDEBAR_COLLAPSED      = 64
+SIDEBAR_EXPANDED       = 260
+SIDEBAR_COLLAPSED      = 70
 SIDEBAR_ANIM_MS        = 280
 SIDEBAR_TEXT_THRESHOLD = 120
 
@@ -83,3 +88,18 @@ DRAG_OPACITY      = 0.75
 # ── Hover animation ───────────────────────────────────────────
 CARD_HOVER_ANIM_MS = 180
 CARD_HOVER_OFFSET  = -6
+
+# ── Window / resize ───────────────────────────────────────────
+# Зона ресайза делится пополам: RESIZE_OUTER px снаружи визуального края
+# (прозрачная рамка окна) и RESIZE_INNER px внутри (видимая зона).
+RESIZE_MARGIN = 20
+RESIZE_OUTER  = RESIZE_MARGIN // 2   # прозрачная рамка окна
+RESIZE_INNER  = RESIZE_MARGIN // 2   # видимая часть зоны
+
+TITLEBAR_H    = 36    # высота заголовка окна (px)
+
+# ── Overlay sidebar ───────────────────────────────────────────
+# Ширина оверлейного сайдбара в режиме force-collapsed.
+# Реальная ширина ограничена снизу SIDEBAR_EXPANDED и сверху этим значением,
+# и дополнительно не превышает 78% от ширины окна (см. _overlay_target_width).
+OVERLAY_WIDTH = 220

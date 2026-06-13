@@ -1,21 +1,20 @@
 from dataclasses import dataclass
 
-
 @dataclass
 class ThemeConfig:
-    """All visual theme values. Serialised to/from JSON by SettingsManager."""
 
     # ── Backgrounds ───────────────────────────────────────────
-    bg_primary:       str = "#191921"
+    bg_primary:       str = "#1e1e1e"
     bg_card:          str = "#262628"
     bg_surface:       str = "#2d2d3a"
     bg_btn:           str = "#323234"
     bg_btn_hover:     str = "#3a3a3c"
-    bg_nav:           str = "#2a2a3e"
+    bg_nav:           str = "#4343eb"
     bg_nav_hover:     str = "#3a3a55"
     bg_nav_active:    str = "#2e2e50"
     bg_nav_pressed:   str = "#4a4a6a"
     bg_surface_hover: str = "#3d3d4a"
+    bg_sidebar:       str = "#111111"
 
     # ── Accent ────────────────────────────────────────────────
     accent:          str = "#1D9E75"
@@ -54,6 +53,7 @@ COLOR_BG_NAV_HOVER     = _t.bg_nav_hover
 COLOR_BG_NAV_ACTIVE    = _t.bg_nav_active
 COLOR_BG_NAV_PRESSED   = _t.bg_nav_pressed
 COLOR_BG_SURFACE_HOVER = _t.bg_surface_hover
+COLOR_SIDEBAR          = _t.bg_sidebar
 
 COLOR_ACCENT           = _t.accent
 COLOR_ACCENT_HOVER     = _t.accent_hover
