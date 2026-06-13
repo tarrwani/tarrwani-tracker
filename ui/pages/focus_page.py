@@ -36,6 +36,7 @@ class FocusPage(QWidget):
 
         self._proc_tracker: ProcessTracker | None = None
         self._session_accumulator: dict[str, int] = {}
+        self._session_elapsed: int = 0
 
         self._setup_ui()
 
@@ -309,6 +310,7 @@ class FocusPage(QWidget):
             "is_afk_paused": False,
         })
         self._active_card_wrap.setVisible(True)
+        self._session_elapsed = 0
 
         self._lock_other_cards(index)
         self._engine.start(project)
@@ -348,8 +350,10 @@ class FocusPage(QWidget):
                 "timestamp": time.time(),
                 "project_name": project.get("name", ""),
                 "planned_secs": planned_secs,
+                "actual_secs": self._session_elapsed,
             })
         self._session_accumulator.clear()
+        self._session_elapsed = 0
         return log
 
     def _on_stop_active(self) -> None:
@@ -362,6 +366,8 @@ class FocusPage(QWidget):
     def _on_engine_tick(self, state: dict) -> None:
         if not state.get("running", False):
             return
+        if state.get("phase") == "focus" and not state.get("is_paused") and not state.get("is_afk_paused"):
+            self._session_elapsed += 1
         self._active_card.update_state(state)
         if self._proc_tracker:
             paused = state.get("is_paused", False) or state.get("is_afk_paused", False)

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import math
 import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QSizePolicy,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QRectF
+from PySide6.QtGui import QPainter, QColor, QBrush, QPen
 
 from config import (
     COLOR_BG_PRIMARY, COLOR_BG_CARD, COLOR_BG_SURFACE, COLOR_BG_SURFACE_HOVER,
@@ -20,7 +22,8 @@ from config import (
 )
 
 _PERIOD_LABELS = ["День", "Неделя", "Месяц", "Всё время"]
-_PERIOD_SECS = [86400, 604800, 2592000, None]
+_DAY_SECS = 86400
+_PERIOD_SECS = [_DAY_SECS, 7 * _DAY_SECS, 30 * _DAY_SECS, None]
 
 
 def _fmt_duration(secs: int) -> str:
@@ -36,7 +39,7 @@ def _fmt_duration(secs: int) -> str:
     return " ".join(parts)
 
 
-def _collect_sessions(projects: list[dict], period_idx: int) -> list[dict]:
+def _sessions_in_period(projects: list[dict], period_idx: int) -> list[dict]:
     now = time.time()
     limit = _PERIOD_SECS[period_idx]
     sessions = []
@@ -48,7 +51,11 @@ def _collect_sessions(projects: list[dict], period_idx: int) -> list[dict]:
     return sessions
 
 
-def _format_timestamp(ts: float) -> str:
+def _session_secs(s: dict) -> int:
+    return s.get("actual_secs") or s.get("planned_secs", 0)
+
+
+def _fmt_ts(ts: float) -> str:
     dt = datetime.fromtimestamp(ts)
     today = datetime.now()
     if dt.date() == today.date():
@@ -57,6 +64,89 @@ def _format_timestamp(ts: float) -> str:
         return "Вчера " + dt.strftime("%H:%M")
     return dt.strftime("%d.%m.%Y %H:%M")
 
+
+# ── Chart widget ──────────────────────────────────────────
+
+class _BarChart(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._data: list[tuple[str, int]] = []
+        self.setMinimumHeight(160)
+
+    def set_data(self, data: list[tuple[str, int]]):
+        self._data = list(data)
+        self.update()
+
+    def paintEvent(self, event):
+        if not self._data:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        w = self.width()
+        h = self.height()
+        pad_l = 48
+        pad_r = 12
+        pad_t = 12
+        pad_b = 28
+        chart_w = w - pad_l - pad_r
+        chart_h = h - pad_t - pad_b
+
+        if chart_w < 10 or chart_h < 10:
+            painter.end()
+            return
+
+        max_val = max(v for _, v in self._data)
+        n = len(self._data)
+        bar_w = max(8, min(40, chart_w // n - 4))
+        gap = (chart_w - n * bar_w) / (n + 1)
+        if gap < 2:
+            bar_w = max(6, (chart_w - 2 * (n - 1)) // n)
+            gap = 2
+
+        # Y grid lines
+        steps = 4
+        accent_color = QColor(COLOR_ACCENT)
+        muted_color = QColor(COLOR_TEXT_MUTED)
+        surface_color = QColor(COLOR_BG_SURFACE)
+
+        for i in range(steps + 1):
+            y = pad_t + chart_h - int(chart_h * i / steps)
+            painter.setPen(QPen(surface_color, 1))
+            painter.drawLine(int(pad_l), int(y), int(w - pad_r), int(y))
+            val = max_val * i // steps
+            painter.setPen(QPen(muted_color, 1))
+            painter.drawText(
+                QRectF(0, y - 8, pad_l - 6, 16),
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                _fmt_duration(val),
+            )
+
+        # Bars
+        for i, (label, val) in enumerate(self._data):
+            x = pad_l + gap + i * (bar_w + gap)
+            bar_h = int(chart_h * val / max_val) if max_val else 0
+            y = pad_t + chart_h - bar_h
+
+            alpha = max(80, 255 - int(255 * 0.15 * (n - 1 - i)))
+            bar_color = QColor(COLOR_ACCENT)
+            bar_color.setAlpha(alpha)
+            painter.setBrush(QBrush(bar_color))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawRoundedRect(QRectF(x, y, bar_w, bar_h), 4, 4)
+
+            # Label
+            painter.setPen(QPen(muted_color, 1))
+            painter.drawText(
+                QRectF(x - 10, pad_t + chart_h + 4, bar_w + 20, 22),
+                Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+                label,
+            )
+
+        painter.end()
+
+
+# ── Stats page ─────────────────────────────────────────────
 
 class StatsPage(QWidget):
     def __init__(self, parent=None):
@@ -107,6 +197,10 @@ class StatsPage(QWidget):
         layout.addWidget(self._build_period_bar())
         self._summary_row = self._build_summary_row()
         layout.addWidget(self._summary_row)
+
+        self._chart_card = self._build_chart_card()
+        layout.addWidget(self._chart_card)
+
         self._projects_section = self._build_section("Проекты")
         layout.addWidget(self._projects_section)
         self._apps_section = self._build_section("Приложения")
@@ -178,8 +272,9 @@ class StatsPage(QWidget):
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(16)
         self._summary_cards: list[QFrame] = []
-        for _ in range(3):
-            card = self._summary_card("—", "—")
+        self._summary_vals: list[QLabel] = []
+        for value, label in [("—", "Всего времени"), ("—", "Сессий"), ("—", "Проектов")]:
+            card = self._summary_card(value, label)
             self._summary_cards.append(card)
             row.addWidget(card)
         return w
@@ -204,7 +299,6 @@ class StatsPage(QWidget):
             " background: transparent;"
         )
         layout.addWidget(val)
-        self._summary_vals = getattr(self, "_summary_vals", [])
         self._summary_vals.append(val)
 
         lbl = QLabel(label)
@@ -213,6 +307,33 @@ class StatsPage(QWidget):
             f"color: {COLOR_TEXT_MUTED}; font-size: 12px; background: transparent;"
         )
         layout.addWidget(lbl)
+
+        return card
+
+    # ── Chart card ────────────────────────────────────────
+
+    def _build_chart_card(self) -> QFrame:
+        card = QFrame()
+        card.setStyleSheet(f"""
+            QFrame {{
+                background: {COLOR_BG_CARD};
+                border-radius: 14px;
+            }}
+        """)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(8)
+
+        header = QLabel("АКТИВНОСТЬ ПО ДНЯМ")
+        header.setStyleSheet(
+            f"color: {COLOR_TEXT_MUTED}; font-size: 11px; letter-spacing: 1px;"
+            " background: transparent;"
+        )
+        layout.addWidget(header)
+
+        self._chart = _BarChart()
+        self._chart.setMinimumHeight(160)
+        layout.addWidget(self._chart)
 
         return card
 
@@ -271,7 +392,6 @@ class StatsPage(QWidget):
         self._history_layout = QVBoxLayout(self._history_card)
         self._history_layout.setContentsMargins(20, 16, 20, 16)
         self._history_layout.setSpacing(6)
-        layout.addWidget(self._history_card)
 
         self._history_empty = QLabel("Нет завершённых сессий")
         self._history_empty.setStyleSheet(
@@ -284,19 +404,24 @@ class StatsPage(QWidget):
     # ── Refresh ──────────────────────────────────────────
 
     def _refresh(self):
-        sessions = _collect_sessions(self._projects, self._period_idx)
+        sessions = _sessions_in_period(self._projects, self._period_idx)
 
         total_secs = 0
         proc_totals: dict[str, int] = defaultdict(int)
         project_secs: dict[str, int] = defaultdict(int)
+        day_secs: dict[str, int] = defaultdict(int)
 
         for s in sessions:
-            total_secs += s.get("planned_secs", 0)
+            secs = _session_secs(s)
+            total_secs += secs
             pname = s.get("project_name", "Без проекта")
-            project_secs[pname] += s.get("planned_secs", 0)
-            for app, secs in s.get("process_log", {}).items():
-                proc_totals[app] += secs
-            total_secs += s.get("duration_correction", 0)
+            project_secs[pname] += secs
+            for app, app_secs in s.get("process_log", {}).items():
+                proc_totals[app] += app_secs
+            ts = s.get("timestamp")
+            if ts:
+                day = datetime.fromtimestamp(ts).strftime("%d.%m")
+                day_secs[day] += secs
 
         n_sessions = len(sessions)
         n_projects = len(self._projects)
@@ -305,19 +430,23 @@ class StatsPage(QWidget):
         self._summary_vals[1].setText(str(n_sessions))
         self._summary_vals[2].setText(str(n_projects))
 
-        self._refresh_bar_section(self._section_cards[0], project_secs, "Нет данных по проектам")
-        self._refresh_bar_section(self._section_cards[1], proc_totals, "Нет данных по приложениям")
+        # Chart
+        sorted_days = sorted(day_secs.items())
+        self._chart.set_data(sorted_days)
+
+        # Sections
+        self._refresh_bar_section(
+            self._section_cards[0], project_secs, "Нет данных по проектам"
+        )
+        self._refresh_bar_section(
+            self._section_cards[1], proc_totals, "Нет данных по приложениям"
+        )
         self._refresh_history(sessions)
 
     def _refresh_bar_section(self, card: QFrame, data: dict[str, int], empty_text: str):
-        for i in reversed(range(card.layout().count() if card.layout() else 0)):
-            item = card.layout().takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
         old = card.layout()
         if old:
             QWidget().setLayout(old)
-
         layout = QVBoxLayout(card)
         layout.setContentsMargins(20, 16, 20, 16)
         layout.setSpacing(10)
@@ -358,20 +487,20 @@ class StatsPage(QWidget):
                     border-radius: 8px;
                 }}
             """)
-            bar_bg_layout = QHBoxLayout(bar_bg)
-            bar_bg_layout.setContentsMargins(0, 0, 0, 0)
+            bg_layout = QHBoxLayout(bar_bg)
+            bg_layout.setContentsMargins(0, 0, 0, 0)
 
-            bar_fill = QFrame()
-            bar_fill.setFixedHeight(16)
-            bar_fill.setFixedWidth(int(frac * 200))
-            bar_fill.setStyleSheet(f"""
+            fill = QFrame()
+            fill.setFixedHeight(16)
+            fill.setFixedWidth(int(frac * 200))
+            fill.setStyleSheet(f"""
                 QFrame {{
                     background: {COLOR_ACCENT};
                     border-radius: 8px;
                 }}
             """)
-            bar_bg_layout.addWidget(bar_fill)
-            bar_bg_layout.addStretch()
+            bg_layout.addWidget(fill)
+            bg_layout.addStretch()
 
             rl.addWidget(bar_bg, stretch=1)
 
@@ -396,14 +525,18 @@ class StatsPage(QWidget):
             return
 
         self._history_empty.setVisible(False)
-        sorted_sessions = sorted(sessions, key=lambda s: s.get("timestamp", 0), reverse=True)
+        sorted_sessions = sorted(
+            sessions, key=lambda s: s.get("timestamp", 0), reverse=True
+        )
         for s in sorted_sessions[:50]:
             ts = s.get("timestamp", 0)
             pname = s.get("project_name", "—")
-            dur = s.get("planned_secs", 0)
+            dur = _session_secs(s)
+            planned = s.get("planned_secs", 0)
             apps = s.get("process_log", {})
             app_str = ", ".join(
-                f"{n} {_fmt_duration(v)}" for n, v in sorted(apps.items(), key=lambda x: -x[1])[:3]
+                f"{n} {_fmt_duration(v)}"
+                for n, v in sorted(apps.items(), key=lambda x: -x[1])[:3]
             )
 
             row = QWidget()
@@ -413,7 +546,7 @@ class StatsPage(QWidget):
             rl.setContentsMargins(0, 0, 0, 0)
             rl.setSpacing(16)
 
-            t_lbl = QLabel(_format_timestamp(ts) if ts else "—")
+            t_lbl = QLabel(_fmt_ts(ts) if ts else "—")
             t_lbl.setFixedWidth(130)
             t_lbl.setStyleSheet(
                 f"color: {COLOR_TEXT_MUTED}; font-size: 12px; background: transparent;"

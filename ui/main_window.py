@@ -23,64 +23,23 @@ class MainWindow(QWidget):
         self._setup_ui()
 
     def _setup_ui(self):
-        # root = QHBoxLayout(self)
-        # root.setContentsMargins(0, 0, 0, 0)
-        # root.setSpacing(0)
+        root = QHBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        # self.sidebar = SidebarWidget()
-        # self.sidebar.view_changed.connect(self._on_view_changed)
-        # root.addWidget(self.sidebar)
-
-        # self.content = QWidget()
-        # self.content.setContentsMargins(0, 36, 0, 0)
-
-        # content_layout = QVBoxLayout(self.content)
-        # content_layout.setContentsMargins(0, 0, 0, 0)
-        # content_layout.setSpacing(0)
-
-        # self.pages = QStackedWidget()
-        # content_layout.addWidget(self.pages)
-
-        # self.focus_page = FocusPage()   # 0
-        # self.stats_page = StatsPage()   # 1
-
-        # self.pages.addWidget(self.focus_page)
-        # self.pages.addWidget(self.stats_page)
-
-        # root.addWidget(self.content, stretch=1)
-
-        # self.topbar = TopBar(self)
-        # self.topbar.sig_close.connect(self.close)
-        # self.topbar.sig_minimize.connect(self.showMinimized)
-        # self.topbar.sig_fullscreen.connect(self._toggle_fullscreen)
-        # self.topbar.sig_menu_clicked.connect(self.sidebar.toggle)
-
-        # self.sidebar.raise_()
-        # self.topbar.raise_()
-
-        # self._setup_resizers()
-
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-
-        # 2. Добавляем ТОПБАР на самый верх. Он займет ровно столько, 
-        # сколько ему нужно по высоте (например, 42px)
-        self.topbar = TopBar(self)
-        main_layout.addWidget(self.topbar)
-
-        # 3. Создаем ГОРИЗОНТАЛЬНЫЙ контейнер для нижней части (Сайдбар + Контент)
-        workspace_layout = QHBoxLayout()
-        workspace_layout.setContentsMargins(0, 0, 0, 0)
-        workspace_layout.setSpacing(0)
-        main_layout.addLayout(workspace_layout)
-
-        # 4. Добавляем Сайдбар в рабочий контейнер
+        # Sidebar — слева, на всю высоту окна
         self.sidebar = SidebarWidget()
         self.sidebar.view_changed.connect(self._on_view_changed)
-        workspace_layout.addWidget(self.sidebar)
+        root.addWidget(self.sidebar)
 
-        # 5. Создаем Контентную зону (Центральная часть)
+        # Колонка контента (topbar + страницы)
+        content_column = QVBoxLayout()
+        content_column.setContentsMargins(0, 0, 0, 0)
+        content_column.setSpacing(0)
+
+        self.topbar = TopBar(self)
+        content_column.addWidget(self.topbar)
+
         self.pages = QStackedWidget()
         self.focus_page = FocusPage()
         self.stats_page = StatsPage()
@@ -89,17 +48,17 @@ class MainWindow(QWidget):
         self.pages.addWidget(self.focus_page)
         self.pages.addWidget(self.stats_page)
         self.pages.addWidget(self.marathon_page)
-        
-        # Добавляем страницы в рабочую область и заставляем их растягиваться (stretch=1)
-        workspace_layout.addWidget(self.pages, stretch=1)
+        content_column.addWidget(self.pages, stretch=1)
 
-        # Связываем сигналы топбара
+        root.addLayout(content_column, stretch=1)
+
+        # Связываем сигналы
         self.topbar.sig_close.connect(self.close)
         self.topbar.sig_minimize.connect(self.showMinimized)
         self.topbar.sig_fullscreen.connect(self._toggle_fullscreen)
         self.topbar.sig_menu_clicked.connect(self.sidebar.toggle)
 
-        # Инициализируем грипы ресайза
+        # Грипы ресайза
         self._setup_resizers()
 
         self.sig_window_minimized.connect(self.focus_page._on_window_minimized)

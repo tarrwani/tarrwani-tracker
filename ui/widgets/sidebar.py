@@ -38,7 +38,7 @@ class SidebarWidget(QWidget):
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 42, 10, 10)
+        layout.setContentsMargins(10, 5, 10, 10)
         layout.setSpacing(4)
 
         style = self._btn_style()

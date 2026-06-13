@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QLineEdit, QCompleter,
 )
-from PySide6.QtCore import Qt, QStringListModel
+from PySide6.QtCore import Qt, QEvent, QStringListModel
 
 from config import (
     COLOR_BG_PRIMARY, COLOR_BG_CARD, COLOR_BG_SURFACE, COLOR_BG_SURFACE_HOVER,
@@ -438,6 +438,7 @@ class _ProcessTagInputInline(QWidget):
             QLineEdit::placeholder {{ color: {COLOR_TEXT_MUTED}; }}
         """)
         self._input.returnPressed.connect(self._add_current)
+        self._input.installEventFilter(self)
         input_row.addWidget(self._input, stretch=1)
 
         add_btn = QPushButton("+")
@@ -477,6 +478,13 @@ class _ProcessTagInputInline(QWidget):
         completer.setFilterMode(Qt.MatchFlag.MatchContains)
         completer.activated.connect(self._on_completer_activated)
         self._input.setCompleter(completer)
+
+    def eventFilter(self, obj, event):
+        if obj is self._input and event.type() == QEvent.Type.KeyPress:
+            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                self._add_current()
+                return True
+        return super().eventFilter(obj, event)
 
     def _on_completer_activated(self, text: str):
         name = text.strip()
