@@ -186,7 +186,14 @@ class TimerEngine(QObject):
         if not self._project:
             return
 
-        code = (self._project.get("scripts", {}).get(trigger) or "").strip()
+        raw = self._project.get("scripts", {})
+        if isinstance(raw, list):
+            parts = [s["command"] for s in raw if s.get("trigger") == trigger and s.get("command", "").strip()]
+            code = "\n".join(parts).strip()
+        elif isinstance(raw, dict):
+            code = (raw.get(trigger) or "").strip()
+        else:
+            code = ""
         if not code:
             return
 

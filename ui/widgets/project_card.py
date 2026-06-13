@@ -2,10 +2,11 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
     QGraphicsDropShadowEffect,
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtGui import QColor, QIcon
 
 from config import (
+    ASSETS_DIR,
     COLOR_BG_CARD, COLOR_BG_SURFACE, COLOR_BG_SURFACE_HOVER,
     COLOR_ACCENT, COLOR_ACCENT_HOVER, COLOR_ACCENT_DISABLED,
     COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY, COLOR_TEXT_MUTED, COLOR_TEXT_DISABLED,
@@ -81,7 +82,10 @@ class ProjectCard(QWidget):
             badges.addWidget(self._badge("AFK", COLOR_ACCENT))
 
         scripts = self._project.get("scripts", {})
-        active  = sum(1 for v in scripts.values() if v.strip())
+        if isinstance(scripts, list):
+            active = sum(1 for s in scripts if s.get("command", "").strip())
+        else:
+            active = sum(1 for v in scripts.values() if v.strip())
         if active:
             badges.addWidget(self._badge(f"⚡ {active} скр.", "#5a4a20"))
         
@@ -129,13 +133,28 @@ class ProjectCard(QWidget):
             fixed_w=36,
             slot=lambda: self.sig_delete.emit(self._index),
         )
-        self._start_btn = self._make_btn(
-            "▶  Старт",
-            bg=COLOR_ACCENT,
-            hover=COLOR_ACCENT_HOVER,
-            text_color="#ffffff",
-            slot=lambda: self.sig_start.emit(self._index),
-        )
+        self._start_btn = QPushButton()
+        self._start_btn.setIcon(QIcon(str(ASSETS_DIR / "play.svg")))
+        self._start_btn.setIconSize(QSize(14, 14))
+        self._start_btn.setText(" Старт")
+        self._start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._start_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLOR_ACCENT};
+                color: #ffffff;
+                border: none;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-size: 12px;
+                font-weight: 500;
+            }}
+            QPushButton:hover {{ background: {COLOR_ACCENT_HOVER}; }}
+            QPushButton:disabled {{
+                background: {COLOR_ACCENT_DISABLED};
+                color: {COLOR_TEXT_DISABLED};
+            }}
+        """)
+        self._start_btn.clicked.connect(lambda: self.sig_start.emit(self._index))
 
         btn_zone.addWidget(edit_btn)
         btn_zone.addWidget(del_btn)
@@ -194,7 +213,13 @@ class ProjectCard(QWidget):
             return
         self._locked = locked
         self._start_btn.setDisabled(locked)
-        self._start_btn.setText("⏳ Занято" if locked else "Старт")
+        if locked:
+            self._start_btn.setIcon(QIcon())
+            self._start_btn.setText("⏳ Занято")
+        else:
+            self._start_btn.setIcon(QIcon(str(ASSETS_DIR / "play.svg")))
+            self._start_btn.setIconSize(QSize(14, 14))
+            self._start_btn.setText(" Старт")
         self._start_btn.setCursor(
             Qt.CursorShape.ForbiddenCursor if locked else Qt.CursorShape.PointingHandCursor
         )

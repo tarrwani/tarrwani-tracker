@@ -90,7 +90,7 @@ class MainWindow(QWidget):
         else:
             self._icon_lbl.setFixedSize(0, 0)
         self._icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._icon_lbl.move(64, 9)
+        self._icon_lbl.move(72, 9)
         self._icon_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._icon_lbl.raise_()
 
@@ -99,7 +99,7 @@ class MainWindow(QWidget):
         self._title_lbl.setStyleSheet(
             f"color: {COLOR_TEXT_SECONDARY}; font-size: 13px; background: transparent; padding: 0;"
         )
-        self._title_lbl.move(92, 13)
+        self._title_lbl.move(102, 6)
         self._title_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._title_lbl.raise_()
 

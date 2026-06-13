@@ -43,6 +43,59 @@ _SCRIPT_TRIGGERS = [
 ]
 
 
+class _NoWheelComboBox(QComboBox):
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+class _CollapsibleSection(QWidget):
+    def __init__(self, title: str, default_open: bool = False, parent=None):
+        super().__init__(parent)
+        self._expanded = default_open
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+
+        self._toggle = QPushButton(f"▸ {title}" if not default_open else f"▾ {title}")
+        self._toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._toggle.setFixedHeight(36)
+        self._toggle.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+                color: {COLOR_TEXT_MUTED};
+                font-size: 12px;
+                font-weight: 600;
+                letter-spacing: 1px;
+                text-align: left;
+                padding: 0;
+            }}
+            QPushButton:hover {{ color: {COLOR_TEXT_PRIMARY}; }}
+        """)
+        self._toggle.clicked.connect(self._on_toggle)
+        layout.addWidget(self._toggle)
+
+        self._content = QWidget()
+        self._content.setStyleSheet("background: transparent;")
+        self._content_layout = QVBoxLayout(self._content)
+        self._content_layout.setContentsMargins(0, 0, 0, 0)
+        self._content_layout.setSpacing(10)
+        self._content.setVisible(default_open)
+        layout.addWidget(self._content)
+
+    def content_layout(self) -> QVBoxLayout:
+        return self._content_layout
+
+    def addWidget(self, widget: QWidget) -> None:
+        self._content_layout.addWidget(widget)
+
+    def _on_toggle(self) -> None:
+        self._expanded = not self._expanded
+        self._content.setVisible(self._expanded)
+        title = self._toggle.text()[2:]
+        self._toggle.setText(f"▾ {title}" if self._expanded else f"▸ {title}")
+
+
 class ProjectEditPage(QWidget):
     sig_save   = Signal(dict)
     sig_cancel = Signal()
@@ -66,9 +119,22 @@ class ProjectEditPage(QWidget):
         tracked = self._project.get("tracked_processes", [])
         self._process_list.set_tracked(tracked)
 
-        scripts = self._project.get("scripts", {})
-        for key, editor in self._script_editors.items():
-            editor.setPlainText(scripts.get(key, ""))
+        self._load_scripts(self._project.get("scripts", {}))
+
+    def _load_scripts(self, scripts) -> None:
+        for entry in list(self._script_entries):
+            self._remove_script_entry(entry)
+        if isinstance(scripts, dict):
+            for key, _ in _SCRIPT_TRIGGERS:
+                text = (scripts.get(key) or "").strip()
+                if text:
+                    self._add_script_entry(trigger_key=key, command=text)
+        elif isinstance(scripts, list):
+            for item in scripts:
+                self._add_script_entry(
+                    trigger_key=item.get("trigger", ""),
+                    command=item.get("command", ""),
+                )
 
         is_new = "name" not in self._project
         self._title_lbl.setText("Новый проект" if is_new else "Редактировать проект")
@@ -88,16 +154,16 @@ class ProjectEditPage(QWidget):
         outer.addWidget(top_bar)
 
         # ── Scroll area ──
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setStyleSheet(self._scroll_style())
-        outer.addWidget(scroll, stretch=1)
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setStyleSheet(self._scroll_style())
+        outer.addWidget(self._scroll, stretch=1)
 
         container = QWidget()
         container.setStyleSheet("background: transparent;")
-        scroll.setWidget(container)
+        self._scroll.setWidget(container)
 
         form = QVBoxLayout(container)
         form.setContentsMargins(DIALOG_PADDING, 20, DIALOG_PADDING, DIALOG_PADDING)
@@ -109,11 +175,15 @@ class ProjectEditPage(QWidget):
         form.addWidget(self._section_divider())
         form.addWidget(self._build_cycles_section())
         form.addWidget(self._section_divider())
-        form.addWidget(self._build_afk_section())
-        form.addWidget(self._section_divider())
-        form.addWidget(self._build_process_section())
-        form.addWidget(self._section_divider())
-        form.addWidget(self._build_scripts_section())
+
+        extra = _CollapsibleSection("ДОПОЛНИТЕЛЬНО")
+        extra.addWidget(self._build_afk_section())
+        extra.addWidget(self._section_divider())
+        extra.addWidget(self._build_process_section())
+        extra.addWidget(self._section_divider())
+        extra.addWidget(self._build_scripts_section())
+        form.addWidget(extra)
+
         form.addStretch()
 
         # ── Bottom save bar ──
@@ -171,6 +241,7 @@ class ProjectEditPage(QWidget):
         self._name_edit.setPlaceholderText("Например: Утренняя сессия")
         self._name_edit.setStyleSheet(self._input_style())
         self._name_edit.setFixedHeight(42)
+        self._name_edit.textChanged.connect(self._on_name_changed)
         layout.addWidget(self._name_edit)
 
         return w
@@ -212,7 +283,6 @@ class ProjectEditPage(QWidget):
         self._focus_input.value_changed.connect(lambda _: self._update_preset_highlight())
         self._break_input.value_changed.connect(lambda _: self._update_preset_highlight())
 
-        spin_row.addStretch()
         spin_row.addWidget(self._focus_input)
         spin_row.addWidget(self._break_input)
         spin_row.addStretch()
@@ -369,41 +439,95 @@ class ProjectEditPage(QWidget):
         hint.setWordWrap(True)
         layout.addWidget(hint)
 
-        # Trigger selector
-        self._trigger_combo = QComboBox()
-        for _, label in _SCRIPT_TRIGGERS:
-            self._trigger_combo.addItem(label)
-        self._trigger_combo.setFixedHeight(38)
-        self._trigger_combo.setStyleSheet(self._combo_style())
-        self._trigger_combo.currentIndexChanged.connect(self._on_trigger_changed)
-        layout.addWidget(self._trigger_combo)
+        self._script_entries: list[QWidget] = []
+        self._script_entries_layout = QVBoxLayout()
+        self._script_entries_layout.setContentsMargins(0, 0, 0, 0)
+        self._script_entries_layout.setSpacing(10)
+        layout.addLayout(self._script_entries_layout)
 
-        # One editor per trigger (only the active one shown)
-        self._script_editors: dict[str, QPlainTextEdit] = {}
-        self._editor_stack: list[QPlainTextEdit] = []
-
-        for key, _ in _SCRIPT_TRIGGERS:
-            editor = QPlainTextEdit()
-            editor.setPlaceholderText(
-                "# Введите команды bash/shell здесь\n"
-                "# Пример:\n"
-                "# notify-send \"Фокус завершён!\" && paplay /usr/share/sounds/freedesktop/stereo/complete.oga"
-            )
-            editor.setFixedHeight(130)
-            editor.setStyleSheet(self._editor_style())
-            editor.setVisible(False)
-            self._script_editors[key] = editor
-            self._editor_stack.append(editor)
-            layout.addWidget(editor)
-
-        # Show first editor
-        self._editor_stack[0].setVisible(True)
+        add_btn = QPushButton("+ Добавить скрипт")
+        add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_btn.setFixedHeight(36)
+        add_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: 1px dashed {COLOR_TEXT_MUTED};
+                border-radius: 8px;
+                color: {COLOR_TEXT_MUTED};
+                font-size: 12px;
+            }}
+            QPushButton:hover {{
+                border-color: {COLOR_ACCENT};
+                color: {COLOR_ACCENT};
+            }}
+        """)
+        add_btn.clicked.connect(self._add_script_entry)
+        layout.addWidget(add_btn)
 
         return w
 
-    def _on_trigger_changed(self, index: int) -> None:
-        for i, editor in enumerate(self._editor_stack):
-            editor.setVisible(i == index)
+    def _add_script_entry(self, trigger_key: str | None = None,
+                          command: str = "") -> None:
+        entry = QWidget()
+        entry.setStyleSheet("background: transparent;")
+        entry_layout = QVBoxLayout(entry)
+        entry_layout.setContentsMargins(0, 0, 0, 0)
+        entry_layout.setSpacing(6)
+
+        header = QHBoxLayout()
+        header.setSpacing(8)
+
+        combo = _NoWheelComboBox()
+        for key, label in _SCRIPT_TRIGGERS:
+            combo.addItem(label, key)
+        if trigger_key:
+            idx = combo.findData(trigger_key)
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+        combo.setFixedHeight(36)
+        combo.setStyleSheet(self._combo_style())
+        header.addWidget(combo, stretch=1)
+
+        rm_btn = QPushButton("✕")
+        rm_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        rm_btn.setFixedSize(32, 36)
+        rm_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: #2e1a1a;
+                border: none;
+                border-radius: 8px;
+                color: #e57373;
+                font-size: 14px;
+            }}
+            QPushButton:hover {{
+                background: #c0392b;
+                color: #ffffff;
+            }}
+        """)
+        rm_btn.clicked.connect(lambda: self._remove_script_entry(entry))
+        header.addWidget(rm_btn)
+
+        entry_layout.addLayout(header)
+
+        editor = QPlainTextEdit()
+        editor.setPlaceholderText(
+            "# Введите команды bash/shell здесь\n"
+            "# Пример:\n"
+            "# notify-send \"Фокус завершён!\" && paplay /usr/share/sounds/freedesktop/stereo/complete.oga"
+        )
+        editor.setFixedHeight(100)
+        editor.setStyleSheet(self._editor_style())
+        if command:
+            editor.setPlainText(command)
+        entry_layout.addWidget(editor)
+
+        self._script_entries_layout.addWidget(entry)
+        self._script_entries.append(entry)
+
+    def _remove_script_entry(self, entry: QWidget) -> None:
+        self._script_entries_layout.removeWidget(entry)
+        self._script_entries.remove(entry)
+        entry.deleteLater()
 
     # ── Save bar ──────────────────────────────────────────────
     def _build_save_bar(self) -> QWidget:
@@ -458,15 +582,37 @@ class ProjectEditPage(QWidget):
 
         return bar
 
+    # ── Title sync ────────────────────────────────────────────
+    def _on_name_changed(self, text: str) -> None:
+        stripped = text.strip()
+        if stripped:
+            self._title_lbl.setText(stripped)
+
     # ── Save logic ────────────────────────────────────────────
     def _on_save(self) -> None:
         name = self._name_edit.text().strip()
         if not name:
+            self._name_edit.setStyleSheet(self._input_style(error=True))
             self._name_edit.setPlaceholderText("⚠️ Введите название проекта")
             self._name_edit.setFocus()
+            self._scroll.ensureWidgetVisible(self._name_edit, 50, 50)
+            QTimer.singleShot(2000, lambda: self._name_edit.setStyleSheet(
+                self._input_style(error=False)
+            ))
             return
+        self._name_edit.setStyleSheet(self._input_style(error=False))
 
-        scripts = {key: ed.toPlainText() for key, ed in self._script_editors.items()}
+        scripts_list = []
+        for entry in self._script_entries:
+            combo = entry.findChild(_NoWheelComboBox)
+            editor = entry.findChild(QPlainTextEdit)
+            if combo and editor:
+                command = editor.toPlainText().strip()
+                if command:
+                    scripts_list.append({
+                        "trigger": combo.currentData(),
+                        "command": command,
+                    })
 
         self._project.update({
             "name":              name,
@@ -475,7 +621,7 @@ class ProjectEditPage(QWidget):
             "cycles":            self._cycles_spin.value(),
             "afk_tracking":      self._afk_toggle.isChecked(),
             "tracked_processes": self._process_list.get_tracked(),
-            "scripts":           scripts,
+            "scripts":           scripts_list,
         })
         self.sig_save.emit(dict(self._project))
 
@@ -496,12 +642,13 @@ class ProjectEditPage(QWidget):
         return line
 
     # ── Styles ────────────────────────────────────────────────
-    def _input_style(self) -> str:
+    def _input_style(self, error: bool = False) -> str:
+        border_color = "#e57373" if error else "transparent"
         return f"""
             QLineEdit {{
                 background: {COLOR_BG_SURFACE};
                 color: {COLOR_TEXT_PRIMARY};
-                border: 2px solid transparent;
+                border: 2px solid {border_color};
                 border-radius: {DIALOG_INPUT_RADIUS}px;
                 font-size: {DIALOG_INPUT_FONT}px;
                 padding: 0 14px;
@@ -547,12 +694,13 @@ class ProjectEditPage(QWidget):
                 border-radius: {DIALOG_INPUT_RADIUS}px;
                 font-size: 13px;
                 padding-left: 12px;
+                padding-right: 28px;
             }}
             QComboBox:focus {{ border: 2px solid {COLOR_ACCENT}; }}
             QComboBox::drop-down {{
                 subcontrol-origin: padding;
                 subcontrol-position: top right;
-                width: 32px;
+                width: 28px;
                 border: none;
             }}
             QComboBox QAbstractItemView {{

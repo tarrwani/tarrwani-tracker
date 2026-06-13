@@ -1,31 +1,14 @@
-"""Wide horizontal card shown above the project grid while a focus timer is
-running.
-
-Layout:
-
-    [⏸/▶]   Project name              [Фокус][Цикл 2/4][☕1/3]   [⏹]
-             MM:SS  (big)                    [👁 AFK][⚡ 2 скрипта]
-    [――――――――――――――――――――― progress bar ―――――――――――――――――――――]
-
-- The left icon/button doubles as pause/resume: its color reflects the
-  current phase (focus/break), its glyph (⏸/▶) reflects the action it
-  performs. During an AFK auto-pause it's disabled and shows 💤.
-- The stop/reset button lives separately, top-right of the card.
-- All informational tags are grouped on the right into two pill-shaped
-  groups: live status (phase / cycle / breaks) and project settings
-  (AFK / scripts), so it's clear at a glance what belongs together.
-"""
-
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtGui import QColor, QIcon
 from PySide6.QtWidgets import (
     QFrame, QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QProgressBar,
     QPushButton, QVBoxLayout, QWidget,
 )
 
 from config import (
+    ASSETS_DIR,
     CARD_BORDER_R, COLOR_ACCENT, COLOR_BG_CARD, COLOR_BG_SURFACE,
     COLOR_BG_SURFACE_HOVER, COLOR_TEXT_MUTED, COLOR_TEXT_PRIMARY,
     COLOR_TEXT_SECONDARY, SHADOW_ALPHA_NORMAL, SHADOW_BLUR_NORMAL,
@@ -42,6 +25,49 @@ def _pluralize_scripts(n: int) -> str:
     if 2 <= n <= 4:
         return "скрипта"
     return "скриптов"
+
+
+def _pill(text: str, fg: str, bg: str) -> QLabel:
+    lbl = QLabel(text)
+    lbl.setStyleSheet(
+        f"color: {fg}; background: {bg}; border: none; border-radius: 10px;"
+        " font-size: 12px; font-weight: 600; padding: 2px 10px;"
+    )
+    return lbl
+
+
+class _IconPill(QWidget):
+    def __init__(self, icon_svg: str, text: str, fg: str, bg: str, parent=None):
+        super().__init__(parent)
+        self._text_lbl = QLabel(text)
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(
+            QIcon(str(ASSETS_DIR / icon_svg)).pixmap(12, 12)
+        )
+        icon_lbl.setFixedSize(12, 12)
+        icon_lbl.setStyleSheet("background: transparent;")
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(6, 2, 10, 2)
+        layout.setSpacing(4)
+        layout.addWidget(icon_lbl)
+        self._text_lbl.setStyleSheet(
+            f"color: {fg}; font-size: 12px; font-weight: 600; background: transparent;"
+        )
+        layout.addWidget(self._text_lbl)
+        self.setStyleSheet(
+            f"background: {bg}; border: none; border-radius: 10px;"
+        )
+
+    def setText(self, text: str) -> None:
+        self._text_lbl.setText(text)
+
+    def recolor(self, fg: str, bg: str) -> None:
+        self._text_lbl.setStyleSheet(
+            f"color: {fg}; font-size: 12px; font-weight: 600; background: transparent;"
+        )
+        self.setStyleSheet(
+            f"background: {bg}; border: none; border-radius: 10px;"
+        )
 
 
 class ActiveTimerCard(QWidget):
@@ -66,34 +92,37 @@ class ActiveTimerCard(QWidget):
     # ── Build ────────────────────────────────────────────────
     def _setup_ui(self) -> None:
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(20, 16, 20, 14)
-        outer.setSpacing(12)
+        outer.setContentsMargins(16, 10, 16, 8)
+        outer.setSpacing(6)
 
+        # Top row
         row = QHBoxLayout()
-        row.setSpacing(18)
+        row.setSpacing(10)
         outer.addLayout(row)
 
-        # ── Play / Pause button (also indicates phase via color) ──
-        self._play_btn = QPushButton("⏸")
+        # Play / Pause button
+        self._play_btn = QPushButton()
+        self._play_btn.setIcon(QIcon(str(ASSETS_DIR / "pause.svg")))
+        self._play_btn.setIconSize(QSize(20, 20))
         self._play_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._play_btn.setFixedSize(56, 56)
+        self._play_btn.setFixedSize(44, 44)
         self._play_btn.clicked.connect(self.sig_toggle_pause.emit)
         row.addWidget(self._play_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        # ── Name + big time ──
+        # Project name above time
         info = QVBoxLayout()
         info.setSpacing(0)
 
         self._name_lbl = QLabel("Проект")
         self._name_lbl.setStyleSheet(
-            f"color: {COLOR_TEXT_PRIMARY}; font-size: 15px; font-weight: 600;"
+            f"color: {COLOR_TEXT_PRIMARY}; font-size: 14px; font-weight: 600;"
             " background: transparent;"
         )
         info.addWidget(self._name_lbl)
 
         self._time_lbl = QLabel("00:00")
         self._time_lbl.setStyleSheet(
-            f"color: {COLOR_TEXT_PRIMARY}; font-size: 36px; font-weight: 700;"
+            f"color: {COLOR_TEXT_SECONDARY}; font-size: 22px; font-weight: 700;"
             ' font-family: "Consolas", "Courier New", monospace;'
             " background: transparent;"
         )
@@ -102,91 +131,55 @@ class ActiveTimerCard(QWidget):
         row.addLayout(info)
         row.addStretch()
 
-        # ── Right side: tag groups (top) + stop button ──
-        right = QVBoxLayout()
-        right.setSpacing(8)
-        right.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
-        row.addLayout(right)
-
-        # Row 1: live status group + stop button
+        # Status pills + stop button
         status_row = QHBoxLayout()
-        status_row.setSpacing(10)
+        status_row.setSpacing(8)
         status_row.addStretch()
 
-        self._status_group = QWidget()
-        self._status_group.setStyleSheet(
-            f"background: {COLOR_BG_SURFACE}; border-radius: 10px;"
-        )
-        status_layout = QHBoxLayout(self._status_group)
-        status_layout.setContentsMargins(12, 6, 12, 6)
-        status_layout.setSpacing(10)
+        self._phase_pill = _IconPill("target.svg", "Фокус", "#ffffff", f"{COLOR_ACCENT}CC")
+        self._cycle_pill = _IconPill("cycle.svg", "1/1", COLOR_TEXT_SECONDARY, f"{COLOR_BG_SURFACE}")
+        self._breaks_pill = _IconPill("break.svg", "0/0", COLOR_TEXT_SECONDARY, f"{COLOR_BG_SURFACE}")
+        self._afk_pill = _pill("👁 AFK", COLOR_ACCENT, f"{COLOR_ACCENT}18")
+        self._afk_pill.setVisible(False)
+        self._scripts_pill = _pill("⚡ 0", COLOR_TEXT_MUTED, "transparent")
 
-        self._phase_lbl = self._tag_label("🎯 Фокус", COLOR_ACCENT)
-        self._cycle_lbl = self._tag_label("🔁 Цикл 1/1", COLOR_TEXT_SECONDARY)
-        self._breaks_lbl = self._tag_label("☕ 0/0", COLOR_TEXT_SECONDARY)
+        status_row.addWidget(self._phase_pill)
+        status_row.addWidget(self._cycle_pill)
+        status_row.addWidget(self._breaks_pill)
+        status_row.addWidget(self._afk_pill)
+        status_row.addWidget(self._scripts_pill)
 
-        status_layout.addWidget(self._phase_lbl)
-        status_layout.addWidget(self._divider())
-        status_layout.addWidget(self._cycle_lbl)
-        status_layout.addWidget(self._divider())
-        status_layout.addWidget(self._breaks_lbl)
-
-        status_row.addWidget(self._status_group)
-
-        self._stop_btn = QPushButton("⏹")
+        self._stop_btn = QPushButton()
+        self._stop_btn.setIcon(QIcon(str(ASSETS_DIR / "reset.svg")))
+        self._stop_btn.setIconSize(QSize(16, 16))
         self._stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._stop_btn.setFixedSize(36, 36)
-        self._stop_btn.setStyleSheet(self._round_btn_style("#2e1a1a", "#c0392b", 18))
+        self._stop_btn.setFixedSize(32, 32)
+        self._stop_btn.setStyleSheet(self._round_btn_style("#2e1a1a", "#c0392b", 16))
         self._stop_btn.setToolTip("Остановить таймер")
         self._stop_btn.clicked.connect(self.sig_stop.emit)
         status_row.addWidget(self._stop_btn)
 
-        right.addLayout(status_row)
+        row.addLayout(status_row)
 
-        # Row 2: project settings group (AFK / scripts)
-        settings_row = QHBoxLayout()
-        settings_row.setSpacing(10)
-        settings_row.addStretch()
-
-        self._config_group = QWidget()
-        self._config_group.setStyleSheet(
-            f"background: transparent; border: 1px solid {COLOR_BG_SURFACE};"
-            " border-radius: 10px;"
-        )
-        config_layout = QHBoxLayout(self._config_group)
-        config_layout.setContentsMargins(12, 5, 12, 5)
-        config_layout.setSpacing(10)
-
-        self._afk_lbl = self._tag_label("👁 AFK включён", COLOR_ACCENT)
-        self._afk_divider = self._divider()
-        self._scripts_lbl = self._tag_label("⚡ 0 скриптов", COLOR_TEXT_MUTED)
-
-        config_layout.addWidget(self._afk_lbl)
-        config_layout.addWidget(self._afk_divider)
-        config_layout.addWidget(self._scripts_lbl)
-
-        settings_row.addWidget(self._config_group)
-        right.addLayout(settings_row)
-
-        # ── Progress bar ──
+        # Progress bar
         self._progress = QProgressBar()
         self._progress.setRange(0, 1000)
         self._progress.setValue(0)
         self._progress.setTextVisible(False)
-        self._progress.setFixedHeight(6)
+        self._progress.setFixedHeight(4)
         self._progress.setStyleSheet(f"""
             QProgressBar {{
                 background: {COLOR_BG_SURFACE};
-                border-radius: 3px;
+                border-radius: 2px;
             }}
             QProgressBar::chunk {{
                 background: {COLOR_ACCENT};
-                border-radius: 3px;
+                border-radius: 2px;
             }}
         """)
         outer.addWidget(self._progress)
 
-        # ── Process activity log ──
+        # Process activity log
         self._proc_log_widget = QWidget()
         self._proc_log_widget.setStyleSheet("background: transparent;")
         self._proc_log_layout = QHBoxLayout(self._proc_log_widget)
@@ -196,21 +189,6 @@ class ActiveTimerCard(QWidget):
         outer.addWidget(self._proc_log_widget)
 
     # ── Helpers ──────────────────────────────────────────────
-    def _tag_label(self, text: str, color: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setStyleSheet(
-            f"color: {color}; font-size: 12px; font-weight: 600;"
-            " background: transparent;"
-        )
-        return lbl
-
-    def _divider(self) -> QFrame:
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.VLine)
-        line.setFixedSize(1, 14)
-        line.setStyleSheet(f"background: {COLOR_TEXT_MUTED}44; border: none;")
-        return line
-
     def _round_btn_style(self, bg: str, hover: str, radius: int) -> str:
         return f"""
             QPushButton {{
@@ -218,7 +196,7 @@ class ActiveTimerCard(QWidget):
                 color: {COLOR_TEXT_PRIMARY};
                 border: none;
                 border-radius: {radius}px;
-                font-size: 14px;
+                font-size: 12px;
             }}
             QPushButton:hover {{ background: {hover}; }}
             QPushButton:disabled {{
@@ -233,6 +211,12 @@ class ActiveTimerCard(QWidget):
         shadow.setOffset(0, SHADOW_OFFSET_NORMAL)
         shadow.setColor(QColor(0, 0, 0, SHADOW_ALPHA_NORMAL))
         self.setGraphicsEffect(shadow)
+
+    def _recolor_pill(self, pill: QLabel, fg: str, bg: str) -> None:
+        pill.setStyleSheet(
+            f"color: {fg}; background: {bg}; border: none; border-radius: 10px;"
+            " font-size: 12px; font-weight: 600; padding: 2px 10px;"
+        )
 
     # ── State updates ────────────────────────────────────────
     def update_state(self, state: dict) -> None:
@@ -251,51 +235,53 @@ class ActiveTimerCard(QWidget):
         # ── Play / pause button ──
         self._update_play_btn(phase, is_paused, is_afk_paused)
 
-        # ── Phase tag ──
+        # ── Phase pill ──
         if is_afk_paused:
-            self._phase_lbl.setText("💤 AFK-пауза")
-            self._set_tag_color(self._phase_lbl, _COLOR_AFK_PAUSE)
+            self._phase_pill.setText("AFK-пауза")
+            self._phase_pill.recolor(_COLOR_AFK_PAUSE, f"{_COLOR_AFK_PAUSE}22")
         elif is_paused:
-            self._phase_lbl.setText("⏸ Пауза")
-            self._set_tag_color(self._phase_lbl, COLOR_TEXT_MUTED)
+            self._phase_pill.setText("Пауза")
+            self._phase_pill.recolor(COLOR_TEXT_MUTED, f"{COLOR_TEXT_MUTED}18")
         elif phase == "focus":
-            self._phase_lbl.setText("🎯 Фокус")
-            self._set_tag_color(self._phase_lbl, COLOR_ACCENT)
+            self._phase_pill.setText("Фокус")
+            self._phase_pill.recolor("#ffffff", f"{COLOR_ACCENT}CC")
         else:
-            self._phase_lbl.setText("☕ Перерыв")
-            self._set_tag_color(self._phase_lbl, _COLOR_BREAK)
+            self._phase_pill.setText("Перерыв")
+            self._phase_pill.recolor("#ffffff", f"{_COLOR_BREAK}CC")
 
-        # ── Cycle / breaks tags ──
+        # ── Cycle / breaks pills ──
         cycle = state.get("cycle", 1)
         total_cycles = state.get("total_cycles", 1)
-        self._cycle_lbl.setText(f"🔁 Цикл {cycle}/{total_cycles}")
+        self._cycle_pill.setText(f"{cycle}/{total_cycles}")
 
         breaks_done = state.get("breaks_done", 0)
         total_breaks = state.get("total_breaks", 0)
-        self._breaks_lbl.setText(f"☕ {breaks_done}/{total_breaks}")
+        self._breaks_pill.setText(f"{breaks_done}/{total_breaks}")
 
-        # ── Settings group: AFK ──
+        # ── AFK pill ──
         afk_enabled = project.get("afk_tracking", False)
-        self._afk_lbl.setVisible(afk_enabled)
-        self._afk_divider.setVisible(afk_enabled)
         if afk_enabled:
+            self._afk_pill.setVisible(True)
             if is_afk_paused:
-                self._afk_lbl.setText("👁 AFK: нет активности")
-                self._set_tag_color(self._afk_lbl, _COLOR_AFK_PAUSE)
+                self._afk_pill.setText("👁 нет активности")
+                self._recolor_pill(self._afk_pill, _COLOR_AFK_PAUSE, f"{_COLOR_AFK_PAUSE}22")
             else:
-                self._afk_lbl.setText("👁 AFK включён")
-                self._set_tag_color(self._afk_lbl, COLOR_ACCENT)
+                self._afk_pill.setText("👁 AFK")
+                self._recolor_pill(self._afk_pill, COLOR_ACCENT, f"{COLOR_ACCENT}18")
+        else:
+            self._afk_pill.setVisible(False)
 
-        # ── Settings group: scripts ──
+        # ── Scripts pill ──
         scripts = project.get("scripts", {})
-        active_scripts = sum(1 for v in scripts.values() if v.strip())
-        self._scripts_lbl.setText(
-            f"⚡ {active_scripts} {_pluralize_scripts(active_scripts)}"
-        )
-        self._set_tag_color(
-            self._scripts_lbl,
-            "#d4a017" if active_scripts else COLOR_TEXT_MUTED,
-        )
+        if isinstance(scripts, list):
+            active_scripts = sum(1 for s in scripts if s.get("command", "").strip())
+        else:
+            active_scripts = sum(1 for v in scripts.values() if v.strip())
+        self._scripts_pill.setText(f"⚡ {active_scripts}")
+        if active_scripts:
+            self._recolor_pill(self._scripts_pill, "#d4a017", f"#d4a01718")
+        else:
+            self._recolor_pill(self._scripts_pill, COLOR_TEXT_MUTED, "transparent")
 
         # ── Progress bar ──
         total = state.get("phase_total", 1) or 1
@@ -303,38 +289,46 @@ class ActiveTimerCard(QWidget):
         self._progress.setValue(max(0, min(1000, progress)))
 
     def _update_play_btn(self, phase: str, is_paused: bool, is_afk_paused: bool) -> None:
+        pause_icon = QIcon(str(ASSETS_DIR / "pause.svg"))
+        play_icon = QIcon(str(ASSETS_DIR / "play.svg"))
+
         if is_afk_paused:
+            self._play_btn.setIcon(QIcon())
             self._play_btn.setText("💤")
             self._play_btn.setToolTip("Пауза по AFK — продолжится автоматически")
             self._play_btn.setEnabled(False)
-            bg = f"{COLOR_TEXT_MUTED}22"
+            bg = COLOR_BG_SURFACE
             color = COLOR_TEXT_MUTED
         elif is_paused:
-            self._play_btn.setText("▶")
+            self._play_btn.setIcon(play_icon)
+            self._play_btn.setText("")
             self._play_btn.setToolTip("Продолжить")
             self._play_btn.setEnabled(True)
-            bg = f"{COLOR_TEXT_MUTED}22"
+            bg = COLOR_BG_SURFACE
             color = COLOR_TEXT_PRIMARY
         elif phase == "break":
-            self._play_btn.setText("⏸")
+            self._play_btn.setIcon(pause_icon)
+            self._play_btn.setText("")
             self._play_btn.setToolTip("Пауза")
             self._play_btn.setEnabled(True)
-            bg = f"{_COLOR_BREAK}22"
+            bg = COLOR_BG_SURFACE
             color = _COLOR_BREAK
         else:  # focus, running
-            self._play_btn.setText("⏸")
+            self._play_btn.setIcon(pause_icon)
+            self._play_btn.setText("")
             self._play_btn.setToolTip("Пауза")
             self._play_btn.setEnabled(True)
-            bg = f"{COLOR_ACCENT}22"
+            bg = COLOR_BG_SURFACE
             color = COLOR_ACCENT
 
+        self._play_btn.setIconSize(QSize(20, 20))
         self._play_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {bg};
                 color: {color};
                 border: none;
-                border-radius: 28px;
-                font-size: 20px;
+                border-radius: 22px;
+                font-size: 18px;
             }}
             QPushButton:hover {{ background: {COLOR_BG_SURFACE_HOVER}; }}
             QPushButton:disabled {{
@@ -342,12 +336,6 @@ class ActiveTimerCard(QWidget):
                 color: {COLOR_TEXT_MUTED};
             }}
         """)
-
-    def _set_tag_color(self, lbl: QLabel, color: str) -> None:
-        lbl.setStyleSheet(
-            f"color: {color}; font-size: 12px; font-weight: 600;"
-            " background: transparent;"
-        )
 
     def update_process_log(self, log: dict[str, int]) -> None:
         for i in reversed(range(self._proc_log_layout.count())):

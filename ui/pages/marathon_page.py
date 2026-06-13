@@ -4,9 +4,11 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QLineEdit, QCompleter,
 )
-from PySide6.QtCore import Qt, QTimer, QStringListModel
+from PySide6.QtCore import Qt, QSize, QTimer, QStringListModel
+from PySide6.QtGui import QIcon
 
 from config import (
+    ASSETS_DIR,
     COLOR_BG_PRIMARY, COLOR_BG_CARD, COLOR_BG_SURFACE, COLOR_BG_SURFACE_HOVER,
     COLOR_BG_BTN, COLOR_BG_BTN_HOVER,
     COLOR_ACCENT, COLOR_ACCENT_HOVER, COLOR_ACCENT_DISABLED,
@@ -128,7 +130,10 @@ class MarathonPage(QWidget):
         row.setSpacing(20)
         row.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self._toggle_btn = QPushButton("▶ Старт")
+        self._toggle_btn = QPushButton()
+        self._toggle_btn.setIcon(QIcon(str(ASSETS_DIR / "play.svg")))
+        self._toggle_btn.setIconSize(QSize(22, 22))
+        self._toggle_btn.setText(" Старт")
         self._toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._toggle_btn.setFixedSize(160, 52)
         self._toggle_btn.setStyleSheet(f"""
@@ -145,7 +150,10 @@ class MarathonPage(QWidget):
         self._toggle_btn.clicked.connect(self._on_toggle)
         row.addWidget(self._toggle_btn)
 
-        self._reset_btn = QPushButton("⏹ Сброс")
+        self._reset_btn = QPushButton()
+        self._reset_btn.setIcon(QIcon(str(ASSETS_DIR / "reset.svg")))
+        self._reset_btn.setIconSize(QSize(20, 20))
+        self._reset_btn.setText(" Сброс")
         self._reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._reset_btn.setFixedSize(160, 52)
         self._reset_btn.setStyleSheet(f"""
@@ -303,8 +311,12 @@ class MarathonPage(QWidget):
         running = self._engine.is_running
         paused = self._engine.is_paused
 
+        play_icon = QIcon(str(ASSETS_DIR / "play.svg"))
+        pause_icon = QIcon(str(ASSETS_DIR / "pause.svg"))
+
         if not running:
-            self._toggle_btn.setText("▶ Старт")
+            self._toggle_btn.setIcon(play_icon)
+            self._toggle_btn.setText(" Старт")
             self._toggle_btn.setStyleSheet(f"""
                 QPushButton {{
                     background: {COLOR_ACCENT};
@@ -318,7 +330,8 @@ class MarathonPage(QWidget):
             """)
             self._reset_btn.setEnabled(False)
         elif paused:
-            self._toggle_btn.setText("▶ Продолжить")
+            self._toggle_btn.setIcon(play_icon)
+            self._toggle_btn.setText(" Продолжить")
             self._toggle_btn.setStyleSheet(f"""
                 QPushButton {{
                     background: {COLOR_BG_SURFACE};
@@ -332,7 +345,8 @@ class MarathonPage(QWidget):
             """)
             self._reset_btn.setEnabled(True)
         else:
-            self._toggle_btn.setText("⏸ Пауза")
+            self._toggle_btn.setIcon(pause_icon)
+            self._toggle_btn.setText(" Пауза")
             self._toggle_btn.setStyleSheet(f"""
                 QPushButton {{
                     background: {COLOR_ACCENT};
