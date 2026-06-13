@@ -85,6 +85,7 @@ class MainWindow(QWidget):
         self.focus_page = FocusPage()
         self.stats_page = StatsPage()
         self.marathon_page = MarathonPage()
+        self.stats_page.set_projects(self.focus_page.projects)
         self.pages.addWidget(self.focus_page)
         self.pages.addWidget(self.stats_page)
         self.pages.addWidget(self.marathon_page)
@@ -183,6 +184,8 @@ class MainWindow(QWidget):
 
     def _on_view_changed(self, index: int):
         self.pages.setCurrentIndex(index)
+        if index == 1:
+            self.stats_page.set_projects(self.focus_page.projects)
 
     def _toggle_fullscreen(self):
         if self.isFullScreen():
