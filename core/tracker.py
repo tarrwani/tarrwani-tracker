@@ -3,7 +3,7 @@ import threading
 import win32gui
 import win32process
 import psutil
-from db.queries import start_session, stop_session, log_afk_start, log_afk_end
+from database.queries import start_session, stop_session, log_afk_start, log_afk_end
 from config import AFK_TIMEOUT
 
 class Tracker:
