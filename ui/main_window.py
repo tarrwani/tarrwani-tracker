@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QPushButton
-from PySide6.QtGui import QPainter, QColor, QBrush, QPen, QIcon
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QPushButton, QLabel
+from PySide6.QtGui import QPainter, QColor, QBrush, QPen, QIcon, QPixmap
 from PySide6.QtCore import Qt, QPoint, QSize, QEvent, Signal
 
 from ui.widgets.sidebar import SidebarWidget
@@ -8,7 +8,7 @@ from ui.pages.focus_page import FocusPage
 from ui.pages.stats_page import StatsPage
 from ui.pages.marathon_page import MarathonPage
 from ui.widgets.sidegrip import SideGrip
-from config import APP_BORDER_RADIUS, COLOR_BG_PRIMARY, COLOR_BG_NAV, ASSETS_DIR
+from config import APP_BORDER_RADIUS, COLOR_BG_PRIMARY, COLOR_BG_NAV, COLOR_TEXT_SECONDARY, ASSETS_DIR, ICON_PATH, APP_NAME
 
 
 class MainWindow(QWidget):
@@ -75,6 +75,33 @@ class MainWindow(QWidget):
         """)
         self._menu_btn.clicked.connect(self.sidebar.toggle)
         self._menu_btn.raise_()
+
+        # Icon — абсолютная позиция рядом с гамбургером
+        self._icon_lbl = QLabel(self)
+        self._icon_lbl.setStyleSheet("background: transparent;")
+        pixmap = QPixmap(str(ICON_PATH))
+        if not pixmap.isNull():
+            self._icon_lbl.setFixedSize(24, 24)
+            self._icon_lbl.setPixmap(
+                pixmap.scaled(18, 18,
+                              Qt.AspectRatioMode.KeepAspectRatio,
+                              Qt.TransformationMode.SmoothTransformation)
+            )
+        else:
+            self._icon_lbl.setFixedSize(0, 0)
+        self._icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._icon_lbl.move(64, 9)
+        self._icon_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._icon_lbl.raise_()
+
+        # App name — абсолютная позиция рядом с иконкой
+        self._title_lbl = QLabel(APP_NAME, self)
+        self._title_lbl.setStyleSheet(
+            f"color: {COLOR_TEXT_SECONDARY}; font-size: 13px; background: transparent; padding: 0;"
+        )
+        self._title_lbl.move(92, 13)
+        self._title_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._title_lbl.raise_()
 
         # Грипы ресайза
         self._setup_resizers()

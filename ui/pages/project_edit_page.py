@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QPushButton, QSpinBox, QPlainTextEdit, QScrollArea,
     QFrame, QComboBox, QCompleter,
 )
-from PySide6.QtCore import Qt, Signal, QStringListModel
+from PySide6.QtCore import Qt, QTimer, Signal, QStringListModel
 from PySide6.QtGui import QFont
 
 import psutil
@@ -671,8 +671,11 @@ class ProcessTagInput(QWidget):
         self._input.setCompleter(self._completer)
 
     def _on_completer_activated(self, text: str):
-        self._input.setText(text)
-        self._add_current()
+        name = text.strip()
+        if name and name.lower() not in {n.lower() for n in self._selected}:
+            self._selected.append(name)
+            self._rebuild_tags()
+        QTimer.singleShot(0, self._input.clear)
 
     def _add_current(self):
         name = self._input.text().strip()

@@ -1,11 +1,9 @@
-import os
-from pathlib import Path
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton
 from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QPixmap, QIcon
+from PySide6.QtGui import QIcon
 from config import (
     COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY,
-    COLOR_BG_NAV, APP_NAME, ICON_PATH, ASSETS_DIR
+    COLOR_BG_NAV, ASSETS_DIR
 )
 
 class TopBar(QWidget):
@@ -25,27 +23,6 @@ class TopBar(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 5, 12, 5)
         layout.setSpacing(0)
-
-        self._icon_lbl = QLabel()
-        self._icon_lbl.setStyleSheet("background: transparent;")
-
-        pixmap = QPixmap(str(ICON_PATH))
-        if not pixmap.isNull():
-            self._icon_lbl.setFixedSize(24, 24)
-            self._icon_lbl.setPixmap(
-                pixmap.scaled(18, 18,
-                              Qt.AspectRatioMode.KeepAspectRatio,
-                              Qt.TransformationMode.SmoothTransformation)
-            )
-        else:
-            self._icon_lbl.setFixedSize(0, 0)
-
-        self._icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self._title_lbl = QLabel(APP_NAME)
-        self._title_lbl.setStyleSheet(
-            f"color: {COLOR_TEXT_SECONDARY}; font-size: 13px; background: transparent; padding: 0;"
-        )
 
         btn_style = f"""
             QPushButton {{
@@ -70,10 +47,6 @@ class TopBar(QWidget):
         self._fullscreen_btn = self._make_icon_btn("fullscreen.svg", btn_style,   self._on_fullscreen)
         self._close_btn      = self._make_icon_btn("close.svg", close_style, self.sig_close)
 
-        layout.addSpacing(70)
-        layout.addWidget(self._icon_lbl)
-        layout.addSpacing(10)
-        layout.addWidget(self._title_lbl)
         layout.addStretch()
         layout.addWidget(self._minimize_btn)
         layout.addSpacing(3)
